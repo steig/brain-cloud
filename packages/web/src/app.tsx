@@ -10,6 +10,8 @@ import { DecisionsPage } from "@/components/decisions/page";
 import { SessionsPage } from "@/components/sessions/page";
 import { AnalyticsPage } from "@/components/analytics/page";
 import { SettingsPage } from "@/components/settings/page";
+import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
+import { TermsOfServicePage } from "@/components/legal/terms-of-service";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +49,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
           <Route element={<AuthGuard />}>
             <Route path="/*" element={<AppLayout />} />
           </Route>
