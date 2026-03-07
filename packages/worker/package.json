@@ -1,0 +1,20 @@
+{
+  "name": "brain-worker",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migrate": "wrangler d1 migrations apply brain-db --local",
+    "migrate:prod": "wrangler d1 migrations apply brain-db --remote"
+  },
+  "dependencies": {
+    "hono": "^4.7.0",
+    "jose": "^6.0.0",
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250306.0",
+    "wrangler": "^4.0.0",
+    "typescript": "^5.7.0"
+  }
+}

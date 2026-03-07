@@ -1,0 +1,39 @@
+{
+  "name": "default",
+  "status": "core",
+  "description": "General purpose - all features enabled",
+  "extends": null,
+  "commands": {
+    "include": [
+      "*"
+    ],
+    "exclude": []
+  },
+  "templates": {
+    "issue": "default",
+    "pr": "default",
+    "adr": "default"
+  },
+  "settings": {
+    "test_command": "npm test",
+    "build_command": "npm run build",
+    "lint_command": "npm run lint",
+    "dev_command": "npm run dev"
+  },
+  "conventions": {
+    "branch_prefix": "issue-",
+    "commit_style": "conventional",
+    "pr_merge_strategy": "squash"
+  },
+  "quality": {
+    "require_tests": true,
+    "require_types": false,
+    "tdd_enforcement": "default"
+  },
+  "auto_skills": {
+    "enabled": true
+  },
+  "active_profiles": [
+    "default"
+  ]
+}

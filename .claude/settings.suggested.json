@@ -1,0 +1,89 @@
+{
+  "_note": "Copy this file to settings.local.json and customize for your needs",
+  "_description": "Suggested permissions for Claude DX Framework v2.19.0",
+  "_mcp_setup": "Required: GitHub MCP, Brain MCP. Optional: Memory MCP, Sequential Thinking MCP, Context7 MCP",
+  "permissions": {
+    "allow": [
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(claude mcp list:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(uvx:*)",
+      "Bash(claude mcp:*)",
+      "mcp__github__git_status",
+      "mcp__github__git_diff_unstaged",
+      "mcp__github__git_add",
+      "mcp__github__git_log",
+      "Bash(git tag:*)",
+      "Bash(git push:*)",
+      "Bash(git remote get-url:*)",
+      "Bash(gh release create:*)",
+      "Bash(gh release view:*)",
+      "mcp__github__git_diff_staged",
+      "mcp__github__git_commit",
+      "mcp__github__git_diff",
+      "Bash(mkdir:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(gh auth:*)",
+      "Bash(gh issue create:*)",
+      "Bash(python3:*)",
+      "Bash(gh issue:*)",
+      "Bash(git commit:*)",
+      "Bash(chmod:*)",
+      "mcp__github__git_create_branch",
+      "Bash(./install.sh:*)",
+      "mcp__github__git_checkout",
+      "Bash(gh pr list:*)",
+      "mcp__github__git_branch",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(git checkout:*)",
+      "Bash(git rebase:*)",
+      "Bash(basename:*)"
+    ],
+    "deny": []
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/dx-auto-track.sh"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-start.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/dx-auto-complete.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|Bash|TodoWrite|TaskUpdate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/auto-log-trigger.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "brain-cloud",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter worker dev",
+    "deploy": "pnpm --filter worker deploy",
+    "migrate": "pnpm --filter worker migrate"
+  }
+}

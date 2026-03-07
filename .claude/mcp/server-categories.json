@@ -1,0 +1,170 @@
+{
+  "server_categories": {
+    "global_shared": {
+      "description": "Stateless servers that can handle requests from multiple projects",
+      "servers": {
+        "github": {
+          "package": "mcp-server-git",
+          "command": "uvx",
+          "args": ["--from", "mcp-server-git", "mcp-server-git"],
+          "requires_env": ["GITHUB_PERSONAL_ACCESS_TOKEN"],
+          "stateless": true,
+          "shared_port": true,
+          "default_port": 3100
+        },
+        "fetch": {
+          "package": "mcp-server-fetch", 
+          "command": "uvx",
+          "args": ["--from", "mcp-server-fetch", "mcp-server-fetch"],
+          "requires_env": [],
+          "stateless": true,
+          "shared_port": true,
+          "default_port": 3101
+        },
+        "context7": {
+          "package": "@upstash/context7-mcp",
+          "command": "npx",
+          "args": ["-y", "@upstash/context7-mcp"],
+          "requires_env": [],
+          "stateless": true,
+          "shared_port": true,
+          "default_port": 3102
+        },
+        "sequential-thinking": {
+          "package": "@modelcontextprotocol/server-sequential-thinking",
+          "command": "npx", 
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+          "requires_env": [],
+          "stateless": true,
+          "shared_port": true,
+          "default_port": 3103
+        },
+        "chrome-devtools": {
+          "package": "chrome-devtools-mcp@latest",
+          "command": "npx",
+          "args": ["-y", "chrome-devtools-mcp@latest"],
+          "requires_env": [],
+          "stateless": true,
+          "shared_port": true,
+          "default_port": 3104
+        },
+        "brain": {
+          "package": "@brain/mcp-server",
+          "command": "node",
+          "args": ["/home/steig/code/brain/mcp-server/dist/index.js"],
+          "requires_env": ["BRAIN_API_KEY"],
+          "optional_env": ["BRAIN_API_URL"],
+          "stateless": true,
+          "shared_port": true,
+          "default_port": 3105,
+          "description": "Developer Brain - thoughts, decisions, DX analytics, AI coaching, session scoring, cost tracking"
+        }
+      }
+    },
+    "project_specific": {
+      "description": "Servers that require project context and isolated instances",
+      "servers": {
+        "memory": {
+          "package": "@modelcontextprotocol/server-memory",
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-memory"],
+          "requires_env": [],
+          "requires_project_context": true,
+          "isolated_instance": true,
+          "port_offset": 1,
+          "data_dir": ".ai/mcp/memory"
+        },
+        "filesystem": {
+          "package": "mcp-server-filesystem",
+          "command": "uvx",
+          "args": ["run", "mcp-server-filesystem"],
+          "requires_env": ["PROJECT_ROOT"],
+          "requires_project_context": true,
+          "isolated_instance": true,
+          "port_offset": 2
+        },
+        "sqlite": {
+          "package": "mcp-server-sqlite",
+          "command": "uvx", 
+          "args": ["run", "mcp-server-sqlite"],
+          "requires_env": ["DB_PATH"],
+          "requires_project_context": true,
+          "isolated_instance": true,
+          "port_offset": 3,
+          "data_dir": ".ai/mcp/sqlite"
+        }
+      }
+    }
+  },
+  "port_allocation": {
+    "global_shared_range": {
+      "start": 3100,
+      "end": 3199,
+      "description": "Fixed ports for global shared MCP servers"
+    },
+    "project_specific_range": {
+      "start": 3000,
+      "end": 3099,
+      "ports_per_project": 10,
+      "description": "Dynamic port ranges for project-specific MCP servers"
+    }
+  },
+  "configuration_templates": {
+    "claude_settings_global": {
+      "mcpServers": {
+        "github": {
+          "command": "uvx",
+          "args": ["--from", "mcp-server-git", "mcp-server-git"],
+          "env": {
+            "GITHUB_PERSONAL_ACCESS_TOKEN": "{{GITHUB_TOKEN}}"
+          }
+        },
+        "fetch": {
+          "command": "uvx", 
+          "args": ["--from", "mcp-server-fetch", "mcp-server-fetch"]
+        },
+        "context7": {
+          "command": "npx",
+          "args": ["-y", "@upstash/context7-mcp"]
+        },
+        "sequential-thinking": {
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+        },
+        "chrome-devtools": {
+          "command": "npx",
+          "args": ["-y", "chrome-devtools-mcp@latest"]
+        },
+        "brain": {
+          "command": "node",
+          "args": ["/home/steig/code/brain/mcp-server/dist/index.js"]
+        }
+      }
+    },
+    "claude_settings_project": {
+      "mcpServers": {
+        "memory": {
+          "command": "npx",
+          "args": ["-y", "@modelcontextprotocol/server-memory"],
+          "env": {
+            "MEMORY_DB_PATH": "{{PROJECT_PATH}}/.ai/mcp/memory/db.json"
+          }
+        }
+      }
+    }
+  },
+  "management_strategy": {
+    "global_shared": {
+      "lifecycle": "system_wide",
+      "startup": "on_first_use",
+      "shutdown": "manual_or_system_shutdown",
+      "health_check": "periodic"
+    },
+    "project_specific": {
+      "lifecycle": "project_scoped",
+      "startup": "on_project_activation",
+      "shutdown": "on_project_deactivation",
+      "health_check": "on_use"
+    }
+  }
+}

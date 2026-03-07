@@ -1,0 +1,38 @@
+name = "brain"
+main = "src/index.ts"
+compatibility_date = "2025-03-05"
+compatibility_flags = ["nodejs_compat"]
+
+# Static assets (React SPA)
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "404-page"
+
+# D1 database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "brain-db"
+database_id = "4dd741c1-dca3-4e5d-a3f5-f4fe9b9ffd0e"
+migrations_dir = "../../migrations"
+
+# Workers AI binding (for digest/coaching generation)
+[ai]
+binding = "AI"
+
+# Environment variables (secrets set via `wrangler secret put`)
+[vars]
+JWT_ISSUER = "brain-ai.dev"
+FRONTEND_URL = "https://brain-ai.dev"
+GITHUB_CALLBACK_URL = "https://brain-ai.dev/auth/github/callback"
+GOOGLE_CALLBACK_URL = "https://brain-ai.dev/auth/google/callback"
+
+# Staging environment
+[env.staging]
+name = "brain-staging"
+[env.staging.vars]
+JWT_ISSUER = "staging.brain-ai.dev"
+FRONTEND_URL = "https://staging.brain-ai.dev"
+
+# Custom domain
+routes = [{ pattern = "brain-ai.dev", custom_domain = true }]

@@ -1,0 +1,38 @@
+// Cloudflare Worker environment bindings
+export interface Env {
+  // D1 database
+  DB: D1Database
+
+  // Workers AI
+  AI: Ai
+
+  // Workers Static Assets (auto-injected by [assets] config)
+  ASSETS?: Fetcher
+
+  // Secrets (set via `wrangler secret put`)
+  JWT_SECRET: string
+  GITHUB_CLIENT_ID: string
+  GITHUB_CLIENT_SECRET: string
+  GOOGLE_CLIENT_ID?: string
+  GOOGLE_CLIENT_SECRET?: string
+
+  // Vars (set in wrangler.toml)
+  JWT_ISSUER: string
+  FRONTEND_URL: string
+  GITHUB_CALLBACK_URL: string
+  GOOGLE_CALLBACK_URL?: string
+}
+
+// Auth context attached to requests
+export interface AuthUser {
+  id: string
+  name: string
+  email?: string
+  avatar?: string
+  system_role: 'user' | 'admin' | 'super_admin'
+}
+
+// Extended Hono variables
+export type Variables = {
+  user: AuthUser
+}
