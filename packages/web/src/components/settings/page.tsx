@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Copy, Key, Plus, Trash2 } from "lucide-react";
+import { Copy, Key, Plus, Trash2, BookOpen } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SetupWizard } from "@/components/onboarding/setup-wizard";
 
 export function SettingsPage() {
   const { data: user, isLoading } = useUser();
@@ -20,6 +21,7 @@ export function SettingsPage() {
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
 
   const handleCreate = async () => {
     if (!newKeyName.trim()) return;
@@ -189,6 +191,14 @@ export function SettingsPage() {
           )}
         </CardContent>
       </Card>
+      {showSetupGuide ? (
+        <SetupWizard onDismiss={() => setShowSetupGuide(false)} />
+      ) : (
+        <Button variant="outline" onClick={() => setShowSetupGuide(true)}>
+          <BookOpen className="mr-2 h-4 w-4" />
+          Setup Guide
+        </Button>
+      )}
     </div>
   );
 }

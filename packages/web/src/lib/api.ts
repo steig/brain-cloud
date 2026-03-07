@@ -1,4 +1,6 @@
-const BASE = "";
+import { API_BASE } from "./config";
+
+const BASE = API_BASE;
 
 async function request<T>(
   path: string,
@@ -33,7 +35,6 @@ async function request<T>(
       if (retryRes.status === 204) return undefined as T;
       return retryRes.json();
     }
-    window.location.href = "/login";
     throw new ApiError(401, "Unauthorized");
   }
 
@@ -84,6 +85,12 @@ export const auth = {
   createApiKey: (name: string) =>
     api.post<ApiKey & { key: string }>("/auth/api-keys", { name }),
   revokeApiKeyById: (id: string) => api.delete(`/auth/api-keys/${id}`),
+  testApiKey: async (key: string): Promise<boolean> => {
+    const res = await fetch(`${BASE}/auth/me`, {
+      headers: { "X-API-Key": key },
+    });
+    return res.ok;
+  },
 };
 
 // API Key type
@@ -192,6 +199,21 @@ export interface DxCost {
   tokens_out: number;
   cost_usd: number;
   request_count: number;
+}
+
+export interface Handoff {
+  id: string;
+  user_id: string;
+  from_project: string | null;
+  to_project: string;
+  handoff_type: "context" | "decision" | "blocker" | "task";
+  priority: "low" | "medium" | "high" | "urgent";
+  message: string;
+  metadata?: Record<string, unknown>;
+  status: "pending" | "claimed" | "resolved";
+  claimed_at: string | null;
+  claim_note: string | null;
+  created_at: string;
 }
 
 export interface TimelineEntry {
