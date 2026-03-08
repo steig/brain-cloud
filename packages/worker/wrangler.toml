@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2025-03-05"
 compatibility_flags = ["nodejs_compat"]
 
+# Cron triggers — data retention runs daily at 3 AM UTC
+[triggers]
+crons = ["0 3 * * *"]
+
 # Static assets (React SPA)
 [assets]
 directory = "../web/dist"
@@ -49,8 +53,13 @@ migrations_dir = "../../migrations"
 [env.staging.ai]
 binding = "AI"
 
-# Custom domain
+# Production custom domain
 routes = [
   { pattern = "brain-ai.dev", custom_domain = true },
   { pattern = "dash.brain-ai.dev/*", zone_name = "brain-ai.dev" },
 ]
+
+# Staging uses brain-staging.workers.dev (default)
+# To add a custom staging domain later:
+# [env.staging.routes]
+# routes = [{ pattern = "staging.brain-ai.dev", custom_domain = true }]
