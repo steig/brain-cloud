@@ -52,7 +52,15 @@ export const Markdown = memo(function Markdown({
       className={cn(
         "prose dark:prose-invert max-w-none",
         size === "sm" && "prose-sm",
-        size === "base" && "prose-base prose-p:leading-7",
+        size === "base" && [
+          "prose-base prose-p:leading-7 prose-p:my-5",
+          "prose-headings:mt-10 prose-headings:mb-4",
+          "prose-ul:my-5 prose-ol:my-5 prose-li:my-1.5",
+          "prose-blockquote:my-6 prose-blockquote:pl-4 prose-blockquote:border-l-2 prose-blockquote:border-primary/30",
+          "prose-pre:my-6",
+          "prose-table:my-6",
+          "prose-hr:my-10",
+        ].join(" "),
         "prose-headings:font-semibold prose-headings:tracking-tight",
         "prose-code:before:content-none prose-code:after:content-none",
         "prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:font-normal",
