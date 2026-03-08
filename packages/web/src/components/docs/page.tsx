@@ -211,8 +211,8 @@ export function DocsPage() {
           {/* Content */}
           <main className="min-w-0 flex-1 px-4 py-8 md:px-8 md:py-10">
             <div className="mx-auto max-w-3xl">
-              <h1 className="mb-2 text-3xl font-bold tracking-tight">Documentation</h1>
-              <p className="mb-10 text-lg text-muted-foreground">Everything you need to set up and use Brain Cloud — persistent AI memory for developers.</p>
+              <h1 className="mb-2 text-3xl font-bold tracking-tight">Brain Cloud Docs</h1>
+              <p className="mb-10 text-lg text-muted-foreground">Give your AI a memory. Set up in 2 minutes, then just work normally.</p>
               {docs.map((category) =>
                 category.sections.map((section) => (
                   <section
