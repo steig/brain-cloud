@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useThoughts, useCreateThought, useDeleteThought } from "@/lib/queries";
 import { ThoughtList } from "./thought-list";
 import { ThoughtForm } from "./thought-form";
@@ -42,6 +43,7 @@ export function ThoughtsPage() {
 
   return (
     <div className="space-y-4">
+      <Helmet><title>Thoughts — Brain Cloud</title></Helmet>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Thoughts</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

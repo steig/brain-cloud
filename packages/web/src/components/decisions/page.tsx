@@ -1,3 +1,4 @@
+import { Helmet } from "react-helmet-async";
 import { useDecisions } from "@/lib/queries";
 import { DecisionList } from "./decision-list";
 
@@ -6,6 +7,7 @@ export function DecisionsPage() {
 
   return (
     <div className="space-y-4">
+      <Helmet><title>Decisions — Brain Cloud</title></Helmet>
       <h1 className="text-2xl font-bold">Decisions</h1>
       <DecisionList
         decisions={decisions.data ?? []}
