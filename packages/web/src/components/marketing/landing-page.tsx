@@ -22,6 +22,7 @@ import {
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
+  { label: "Docs", href: "/docs" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
@@ -205,7 +206,7 @@ function HeroSection() {
       <div className="mx-auto max-w-4xl text-center">
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-4 py-1.5 text-sm text-muted-foreground">
           <Brain className="h-4 w-4" />
-          Persistent memory for AI-assisted development
+          Early access — join the waitlist
         </div>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
           Your AI remembers
@@ -219,7 +220,7 @@ function HeroSection() {
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild size="lg" className="w-full sm:w-auto">
             <a href={`${APP_URL}login`}>
-              Get Started
+              Join the Waitlist
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>
           </Button>
@@ -380,7 +381,7 @@ function PricingSection() {
         </p>
         <Button asChild size="lg" className="mt-8">
           <a href={`${APP_URL}login`}>
-            Get Started Free
+            Join the Waitlist
             <ArrowRight className="ml-2 h-4 w-4" />
           </a>
         </Button>

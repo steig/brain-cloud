@@ -154,6 +154,7 @@ export interface AuthUser {
   email?: string;
   avatar_url?: string;
   system_role: string;
+  approved_at?: string;
   api_key?: string;
   teams?: Array<{ id: string; name: string; role: string }>;
 }
@@ -579,7 +580,7 @@ export interface AdminStats {
 
 export interface AdminUser {
   id: string; name: string; email: string; avatar: string | null; system_role: string
-  created_at: string; thought_count: number; session_count: number
+  approved_at: string | null; created_at: string; thought_count: number; session_count: number
 }
 
 export interface AdminUserDetail extends AdminUser {
@@ -599,6 +600,7 @@ export const admin = {
   updateRole: (id: string, system_role: string) => request<void>(`/api/admin/users/${id}`, {
     method: 'PATCH', body: JSON.stringify({ system_role }),
   }),
+  approveUser: (id: string) => request<void>(`/api/admin/users/${id}/approve`, { method: 'POST' }),
 }
 
 // Cross-project insights

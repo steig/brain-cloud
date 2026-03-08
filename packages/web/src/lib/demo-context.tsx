@@ -32,12 +32,22 @@ export function useDemo() {
 
 function seedQueryCache(qc: ReturnType<typeof useQueryClient>) {
   qc.setQueryData(["user"], DEMO_USER);
+
+  // Thoughts: seed for no-params, full list page, and dashboard widget
   qc.setQueryData(["thoughts", undefined], DEMO_THOUGHTS);
+  qc.setQueryData(["thoughts", { order: "created_at.desc" }], DEMO_THOUGHTS);
   qc.setQueryData(["thoughts", { order: "created_at.desc", limit: "5" }], DEMO_THOUGHTS.slice(0, 5));
+
+  // Decisions: seed for no-params, full list page, and dashboard widget
   qc.setQueryData(["decisions", undefined], DEMO_DECISIONS);
+  qc.setQueryData(["decisions", { order: "created_at.desc" }], DEMO_DECISIONS);
   qc.setQueryData(["decisions", { order: "created_at.desc", limit: "5" }], DEMO_DECISIONS);
+
+  // Sessions: seed for no-params, full list page, and dashboard widget
   qc.setQueryData(["sessions", undefined], DEMO_SESSIONS);
+  qc.setQueryData(["sessions", { order: "started_at.desc" }], DEMO_SESSIONS);
   qc.setQueryData(["sessions", { order: "started_at.desc", limit: "5" }], DEMO_SESSIONS);
+
   qc.setQueryData(["timeline", 7], DEMO_TIMELINE);
   qc.setQueryData(["sentiment", undefined], DEMO_SENTIMENT);
   qc.setQueryData(["projects"], DEMO_PROJECTS);

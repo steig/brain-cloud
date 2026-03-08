@@ -14,7 +14,7 @@ app.get('/stats', async (c) => {
     c.env.DB.prepare('SELECT COUNT(*) as count FROM thoughts').first<{ count: number }>(),
     c.env.DB.prepare('SELECT COUNT(*) as count FROM decisions').first<{ count: number }>(),
     c.env.DB.prepare('SELECT COUNT(*) as count FROM sessions').first<{ count: number }>(),
-    c.env.DB.prepare('SELECT COUNT(*) as count FROM api_keys WHERE revoked_at IS NULL').first<{ count: number }>(),
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM api_keys WHERE is_active = 1').first<{ count: number }>(),
   ])
 
   // Activity over last 7 days
@@ -28,7 +28,7 @@ app.get('/stats', async (c) => {
       UNION ALL
       SELECT created_at, 'decision' FROM decisions WHERE created_at >= datetime('now', '-7 days')
       UNION ALL
-      SELECT created_at, 'session' FROM sessions WHERE created_at >= datetime('now', '-7 days')
+      SELECT started_at as created_at, 'session' FROM sessions WHERE started_at >= datetime('now', '-7 days')
     )
     GROUP BY DATE(created_at)
     ORDER BY date
@@ -67,7 +67,7 @@ app.get('/users', async (c) => {
   const offset = parseInt(c.req.query('offset') || '0')
   const search = c.req.query('search')
 
-  let sql = `SELECT u.id, u.name, u.email, u.avatar, u.system_role, u.created_at,
+  let sql = `SELECT u.id, u.name, u.email, u.avatar_url as avatar, u.system_role, u.approved_at, u.created_at,
              COALESCE(tc.cnt, 0) as thought_count,
              COALESCE(sc.cnt, 0) as session_count
              FROM users u
@@ -99,7 +99,7 @@ app.get('/users/:id', async (c) => {
   const userId = c.req.param('id')
 
   const user = await c.env.DB.prepare(
-    'SELECT id, name, email, avatar, system_role, created_at FROM users WHERE id = ?'
+    'SELECT id, name, email, avatar_url as avatar, system_role, approved_at, created_at FROM users WHERE id = ?'
   ).bind(userId).first()
   if (!user) return c.json({ error: 'User not found' }, 404)
 
@@ -107,7 +107,7 @@ app.get('/users/:id', async (c) => {
     c.env.DB.prepare('SELECT COUNT(*) as count FROM thoughts WHERE user_id = ?').bind(userId).first<{ count: number }>(),
     c.env.DB.prepare('SELECT COUNT(*) as count FROM decisions WHERE user_id = ?').bind(userId).first<{ count: number }>(),
     c.env.DB.prepare('SELECT COUNT(*) as count FROM sessions WHERE user_id = ?').bind(userId).first<{ count: number }>(),
-    c.env.DB.prepare('SELECT COUNT(*) as count FROM api_keys WHERE user_id = ? AND revoked_at IS NULL').bind(userId).first<{ count: number }>(),
+    c.env.DB.prepare('SELECT COUNT(*) as count FROM api_keys WHERE user_id = ? AND is_active = 1').bind(userId).first<{ count: number }>(),
     c.env.DB.prepare('SELECT COUNT(*) as count FROM team_members WHERE user_id = ?').bind(userId).first<{ count: number }>(),
   ])
 
@@ -146,6 +146,21 @@ app.patch('/users/:id', async (c) => {
   await c.env.DB.prepare(
     'UPDATE users SET system_role = ? WHERE id = ?'
   ).bind(system_role, userId).run()
+
+  return c.body(null, 204)
+})
+
+// POST /api/admin/users/:id/approve — approve a waitlisted user
+app.post('/users/:id/approve', async (c) => {
+  const userId = c.req.param('id')
+
+  const result = await c.env.DB.prepare(
+    "UPDATE users SET approved_at = datetime('now') WHERE id = ? AND approved_at IS NULL"
+  ).bind(userId).run()
+
+  if (!result.meta.changes) {
+    return c.json({ error: 'User not found or already approved' }, 404)
+  }
 
   return c.body(null, 204)
 })

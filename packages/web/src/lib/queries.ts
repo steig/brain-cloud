@@ -581,6 +581,18 @@ export function useUpdateUserRole() {
   })
 }
 
+export function useApproveUser() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => admin.approveUser(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      qc.invalidateQueries({ queryKey: ['admin-user'] })
+      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+    },
+  })
+}
+
 // Cross-project insights
 export function useCrossProjectInsights(days: number = 30) {
   return useQuery({

@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { Handoff } from "@/lib/api";
 import { useClaimHandoff } from "@/lib/queries";
 import { timeAgo } from "@/lib/utils";
+import { Markdown } from "@/components/shared/markdown";
 
 interface HandoffListProps {
   handoffs: Handoff[];
@@ -153,9 +154,7 @@ export function HandoffList({ handoffs, isLoading }: HandoffListProps) {
                   <p className="text-xs font-medium text-muted-foreground mb-1">
                     Message
                   </p>
-                  <p className="text-sm whitespace-pre-wrap">
-                    {handoff.message}
-                  </p>
+                  <Markdown content={handoff.message} compact />
                 </div>
 
                 {handoff.claim_note && (

@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Clock, Target, Trophy, AlertTriangle } from "lu
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/shared/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Session } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
@@ -117,7 +118,7 @@ export function SessionList({ sessions, isLoading }: SessionListProps) {
             {isOpen && (
               <CardContent className="px-4 pb-4 pt-0 space-y-3">
                 {session.summary && (
-                  <p className="text-sm">{session.summary}</p>
+                  <Markdown content={session.summary} compact />
                 )}
 
                 {session.goals && session.goals.length > 0 && (

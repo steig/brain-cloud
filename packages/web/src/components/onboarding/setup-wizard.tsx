@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Copy, Check, ChevronRight, X, Loader2 } from "lucide-react";
+import { Copy, Check, ChevronRight, ChevronDown, X, Loader2 } from "lucide-react";
 
 const DISMISSED_KEY = "onboarding_dismissed";
 
@@ -64,7 +64,8 @@ export function SetupWizard({ onDismiss }: SetupWizardProps) {
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<"idle" | "testing" | "success" | "error">("idle");
-  const [selectedClient, setSelectedClient] = useState("claude-code");
+  const [selectedClient, setSelectedClient] = useState("auto");
+  const [showInstallDetails, setShowInstallDetails] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const createKey = useCreateApiKey();
 
@@ -186,11 +187,38 @@ export function SetupWizard({ onDismiss }: SetupWizardProps) {
               <Label>Add to your client config</Label>
               <Tabs value={selectedClient} onValueChange={setSelectedClient}>
                 <TabsList>
+                  <TabsTrigger value="auto">Auto Install</TabsTrigger>
                   <TabsTrigger value="claude-code">Claude Code</TabsTrigger>
                   <TabsTrigger value="claude-desktop">Claude Desktop</TabsTrigger>
                   <TabsTrigger value="other">Other</TabsTrigger>
-                  <TabsTrigger value="auto">Auto-install</TabsTrigger>
                 </TabsList>
+                <TabsContent value="auto">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Installs MCP server, hooks, slash commands, and logging directives. Run in your terminal:
+                  </p>
+                  <ConfigBlock
+                    snippet={`BRAIN_API_KEY="${createdKey}" bash <(curl -fsSL ${getServerUrl()}/install.sh)`}
+                    id="config-auto"
+                    copied={copied}
+                    onCopy={handleCopy}
+                  />
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setShowInstallDetails(!showInstallDetails)}
+                  >
+                    <ChevronDown className={`h-3 w-3 transition-transform ${showInstallDetails ? "" : "-rotate-90"}`} />
+                    What gets installed
+                  </button>
+                  {showInstallDetails && (
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground list-disc list-inside pl-1">
+                      <li>MCP server connection (streamable-http)</li>
+                      <li>Session lifecycle hooks (auto-start, DX tracking)</li>
+                      <li>Slash commands: pickup, commit, health, handoff, onboard</li>
+                      <li>Logging directives for CLAUDE.md</li>
+                    </ul>
+                  )}
+                </TabsContent>
                 <TabsContent value="claude-code">
                   <p className="text-xs text-muted-foreground mb-2">
                     Add to <code className="rounded bg-muted px-1 py-0.5">~/.claude/.mcp.json</code> (global) or <code className="rounded bg-muted px-1 py-0.5">.claude/.mcp.json</code> (per-project):
@@ -208,17 +236,6 @@ export function SetupWizard({ onDismiss }: SetupWizardProps) {
                     Use these values in your MCP-compatible client:
                   </p>
                   <ConfigBlock snippet={configSnippet("other", createdKey)} id="config-other" copied={copied} onCopy={handleCopy} />
-                </TabsContent>
-                <TabsContent value="auto">
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Run this in your terminal to auto-configure Claude Code with MCP server and logging directives:
-                  </p>
-                  <ConfigBlock
-                    snippet={`BRAIN_API_KEY="${createdKey}" bash <(curl -fsSL ${getServerUrl()}/install.sh)`}
-                    id="config-auto"
-                    copied={copied}
-                    onCopy={handleCopy}
-                  />
                 </TabsContent>
               </Tabs>
             </div>

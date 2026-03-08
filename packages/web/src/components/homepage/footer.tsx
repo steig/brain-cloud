@@ -9,6 +9,7 @@ export function Footer() {
         <span>Brain Cloud &copy; {new Date().getFullYear()}</span>
       </div>
       <div className="mx-auto mt-3 flex max-w-5xl items-center justify-center gap-4 text-xs text-muted-foreground">
+        <Link to="/docs" className="hover:text-foreground">Docs</Link>
         <Link to="/privacy" className="hover:text-foreground">Privacy Policy</Link>
         <Link to="/terms" className="hover:text-foreground">Terms of Service</Link>
       </div>

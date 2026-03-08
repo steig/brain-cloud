@@ -17,9 +17,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useAdminUsers, useAdminUser, useUpdateUserRole, useUser } from "@/lib/queries";
+import { useAdminUsers, useAdminUser, useUpdateUserRole, useApproveUser, useUser } from "@/lib/queries";
 import { RoleBadge } from "./dashboard-page";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { AdminNav } from "./admin-nav";
+import { Search, ChevronLeft, ChevronRight, UserCheck } from "lucide-react";
 
 export function AdminUsersPage() {
   const [search, setSearch] = useState("");
@@ -31,6 +32,7 @@ export function AdminUsersPage() {
   const { data, isLoading } = useAdminUsers(debouncedSearch || undefined, page);
   const { data: userDetail, isLoading: detailLoading } = useAdminUser(selectedUserId);
   const updateRole = useUpdateUserRole();
+  const approveUser = useApproveUser();
 
   const isSuperAdmin = currentUser?.system_role === "super_admin";
 
@@ -47,7 +49,8 @@ export function AdminUsersPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">User Management</h1>
+      <h1 className="text-2xl font-bold">Admin</h1>
+      <AdminNav />
 
       {/* Search */}
       <div className="relative max-w-sm">
@@ -81,6 +84,7 @@ export function AdminUsersPage() {
                     <th className="p-3 font-medium">Name</th>
                     <th className="p-3 font-medium">Email</th>
                     <th className="p-3 font-medium">Role</th>
+                    <th className="p-3 font-medium">Status</th>
                     <th className="p-3 font-medium text-right">Thoughts</th>
                     <th className="p-3 font-medium text-right">Sessions</th>
                     <th className="p-3 font-medium">Joined</th>
@@ -97,6 +101,24 @@ export function AdminUsersPage() {
                       <td className="p-3 text-muted-foreground">{user.email}</td>
                       <td className="p-3">
                         <RoleBadge role={user.system_role} />
+                      </td>
+                      <td className="p-3">
+                        {user.approved_at ? (
+                          <Badge variant="secondary" className="bg-green-600/10 text-green-600">Approved</Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              approveUser.mutate(user.id);
+                            }}
+                          >
+                            <UserCheck className="mr-1 h-3 w-3" />
+                            Approve
+                          </Button>
+                        )}
                       </td>
                       <td className="p-3 text-right">{user.thought_count}</td>
                       <td className="p-3 text-right">{user.session_count}</td>

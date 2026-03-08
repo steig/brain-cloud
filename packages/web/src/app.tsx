@@ -40,6 +40,7 @@ const TeamWorkspacePage = lazy(() => import("./components/teams/workspace-page")
 const TeamCoachingPage = lazy(() => import("./components/teams/coaching-page").then(m => ({ default: m.TeamCoachingPage })));
 const CalendarPage = lazy(() => import("./components/calendar/page").then(m => ({ default: m.CalendarPage })));
 const ChangelogPage = lazy(() => import("./components/changelog/page").then(m => ({ default: m.ChangelogPage })));
+const DocsPage = lazy(() => import("./components/docs/page").then(m => ({ default: m.DocsPage })));
 const AskPage = lazy(() => import("./components/ask/page").then(m => ({ default: m.AskPage })));
 
 const queryClient = new QueryClient({
@@ -148,6 +149,7 @@ export default function App() {
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/terms" element={<TermsOfServicePage />} />
               <Route path="/changelog" element={<LazyRoute><ChangelogPage /></LazyRoute>} />
+              <Route path="/docs" element={<LazyRoute><DocsPage /></LazyRoute>} />
               <Route path="/demo" element={<DemoEntry />} />
               {isMarketingSite && (
                 <Route path="/" element={<LandingPage />} />
