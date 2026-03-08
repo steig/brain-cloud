@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import * as q from '../db/queries'
+import { createSessionSchema, updateSessionSchema, validateBody } from './schemas'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -49,7 +50,9 @@ app.get('/', async (c) => {
 app.post('/', async (c) => {
   const user = c.get('user')
   const body = await c.req.json()
-  const session = await q.createSession(c.env.DB, user.id, body)
+  const v = validateBody(createSessionSchema, body)
+  if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
+  const session = await q.createSession(c.env.DB, user.id, v.data)
   const prefer = c.req.header('Prefer')
   if (prefer?.includes('return=representation')) {
     return c.json([{
@@ -67,7 +70,9 @@ app.patch('/', async (c) => {
   const idParam = url.searchParams.get('id')
   if (!idParam?.startsWith('eq.')) return c.json({ error: 'Missing id filter' }, 400)
   const body = await c.req.json()
-  const session = await q.updateSession(c.env.DB, user.id, idParam.slice(3), body)
+  const v = validateBody(updateSessionSchema, body)
+  if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
+  const session = await q.updateSession(c.env.DB, user.id, idParam.slice(3), v.data)
   const prefer = c.req.header('Prefer')
   if (prefer?.includes('return=representation') && session) {
     return c.json([{

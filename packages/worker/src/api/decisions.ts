@@ -1,9 +1,11 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import * as q from '../db/queries'
+import { createDecisionSchema, updateDecisionSchema, validateBody } from './schemas'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
+// @ts-expect-error Hono deep type instantiation with complex query params
 app.get('/', async (c) => {
   const user = c.get('user')
   const url = new URL(c.req.url)
@@ -24,7 +26,7 @@ app.get('/', async (c) => {
     }
     if (key === 'id' && value.startsWith('eq.')) {
       const row = await c.env.DB.prepare(
-        'SELECT * FROM decisions WHERE id = ? AND user_id = ?'
+        'SELECT * FROM decisions WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
       ).bind(value.slice(3), user.id).all()
       return c.json(row.results.map(r => ({
         ...r,
@@ -59,7 +61,9 @@ app.on('HEAD', '/', async (c) => {
 app.post('/', async (c) => {
   const user = c.get('user')
   const body = await c.req.json()
-  const decision = await q.createDecision(c.env.DB, user.id, body)
+  const v = validateBody(createDecisionSchema, body)
+  if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
+  const decision = await q.createDecision(c.env.DB, user.id, v.data)
   const prefer = c.req.header('Prefer')
   if (prefer?.includes('return=representation')) {
     return c.json([{
@@ -77,7 +81,9 @@ app.patch('/', async (c) => {
   const idParam = url.searchParams.get('id')
   if (!idParam?.startsWith('eq.')) return c.json({ error: 'Missing id filter' }, 400)
   const body = await c.req.json()
-  await q.updateDecision(c.env.DB, user.id, idParam.slice(3), body)
+  const v = validateBody(updateDecisionSchema, body)
+  if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
+  await q.updateDecision(c.env.DB, user.id, idParam.slice(3), v.data)
   return c.body(null, 204)
 })
 

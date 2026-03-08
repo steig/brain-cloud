@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import * as q from '../db/queries'
+import { createThoughtSchema, updateThoughtSchema, validateBody } from './schemas'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -37,7 +38,7 @@ app.get('/', async (c) => {
     if (key === 'id' && value.startsWith('eq.')) {
       // Single ID lookup
       const row = await c.env.DB.prepare(
-        'SELECT * FROM thoughts WHERE id = ? AND user_id = ?'
+        'SELECT * FROM thoughts WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
       ).bind(value.slice(3), user.id).all()
       return c.json(row.results)
     }
@@ -78,7 +79,10 @@ app.post('/', async (c) => {
   const body = await c.req.json()
   const prefer = c.req.header('Prefer')
 
-  const thought = await q.createThought(c.env.DB, user.id, body)
+  const v = validateBody(createThoughtSchema, body)
+  if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
+
+  const thought = await q.createThought(c.env.DB, user.id, v.data)
 
   if (prefer?.includes('return=representation')) {
     return c.json([{
@@ -99,7 +103,9 @@ app.patch('/', async (c) => {
 
   const id = idParam.slice(3)
   const body = await c.req.json()
-  await q.updateThought(c.env.DB, user.id, id, body)
+  const v = validateBody(updateThoughtSchema, body)
+  if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
+  await q.updateThought(c.env.DB, user.id, id, v.data)
   return c.body(null, 204)
 })
 
