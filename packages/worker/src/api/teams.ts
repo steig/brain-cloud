@@ -156,6 +156,33 @@ app.delete('/:id/members/:userId', async (c) => {
   return c.body(null, 204)
 })
 
+// GET /api/teams/:id/invites — list pending invites
+app.get('/:id/invites', async (c) => {
+  const user = c.get('user')
+  const teamId = c.req.param('id')
+
+  if (!await requireTeamRole(c.env.DB, teamId, user.id, ['owner', 'admin'])) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  const invites = await q.listTeamInvites(c.env.DB, teamId)
+  return c.json(invites)
+})
+
+// DELETE /api/teams/:id/invites/:inviteId — cancel invite
+app.delete('/:id/invites/:inviteId', async (c) => {
+  const user = c.get('user')
+  const teamId = c.req.param('id')
+  const inviteId = c.req.param('inviteId')
+
+  if (!await requireTeamRole(c.env.DB, teamId, user.id, ['owner', 'admin'])) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  await q.deleteTeamInvite(c.env.DB, inviteId)
+  return c.body(null, 204)
+})
+
 // POST /api/teams/:id/invites — create invite
 app.post('/:id/invites', async (c) => {
   const user = c.get('user')
