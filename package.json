@@ -4,6 +4,10 @@
   "scripts": {
     "dev": "pnpm --filter worker dev",
     "deploy": "pnpm --filter worker deploy",
-    "migrate": "pnpm --filter worker migrate"
+    "migrate": "pnpm --filter worker migrate",
+    "test": "pnpm --filter brain-worker test"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "workerd"]
   }
 }
