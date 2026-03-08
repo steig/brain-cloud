@@ -192,6 +192,15 @@ export const createInviteSchema = z.object({
   role: z.enum(['member', 'admin']).optional(),
 })
 
+// --- Project schemas ---
+
+export const updateProjectSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  description: z.string().max(2000).optional(),
+  repo_url: z.string().url().max(500).optional().or(z.literal('')),
+  visibility: z.enum(['private', 'team', 'public']).optional(),
+})
+
 // --- Shared query param schemas ---
 
 export const limitSchema = z.object({
@@ -201,12 +210,13 @@ export const limitSchema = z.object({
 // --- Helper ---
 
 export function validateBody<T>(schema: z.ZodSchema<T>, body: unknown):
-  { success: true; data: T } | { success: false; error: string; details: z.ZodIssue[] } {
+  { success: true; data: T } | { success: false; error: string; code: 'VALIDATION_FAILED'; details: z.ZodIssue[] } {
   const result = schema.safeParse(body)
   if (result.success) return { success: true, data: result.data }
   return {
     success: false,
     error: 'Validation failed',
+    code: 'VALIDATION_FAILED',
     details: result.error.issues,
   }
 }

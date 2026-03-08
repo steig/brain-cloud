@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import * as q from '../db/queries'
+import { updateProjectSchema, validateBody } from './schemas'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -19,11 +20,10 @@ app.patch('/:id', async (c) => {
   const id = c.req.param('id')
   const project = await q.getProject(c.env.DB, id)
   if (!project) return c.json({ error: 'Not found' }, 404)
-  const body = await c.req.json<{ name?: string; description?: string; repo_url?: string; visibility?: string }>()
-  if (body.visibility && !['private', 'team', 'public'].includes(body.visibility)) {
-    return c.json({ error: 'Invalid visibility' }, 400)
-  }
-  await q.updateProject(c.env.DB, id, body)
+  const body = await c.req.json()
+  const v = validateBody(updateProjectSchema, body)
+  if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
+  await q.updateProject(c.env.DB, id, v.data)
   const updated = await q.getProject(c.env.DB, id)
   return c.json(updated)
 })

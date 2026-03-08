@@ -47,6 +47,9 @@ app.get('/', async (c) => {
 app.post('/join/:token', async (c) => {
   const user = c.get('user')
   const token = c.req.param('token')
+  if (!token || token.length < 10 || token.length > 100) {
+    return c.json({ error: 'Invalid invite token' }, 400)
+  }
 
   const invite = await q.getTeamInviteByToken(c.env.DB, token)
   if (!invite) return c.json({ error: 'Invite not found' }, 404)

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import * as q from '../db/queries'
-import { createDecisionSchema, updateDecisionSchema, validateBody } from './schemas'
+import { createDecisionSchema, updateDecisionSchema, decisionReviewSchema, validateBody } from './schemas'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -117,7 +117,9 @@ app.get('/reviews', async (c) => {
 app.post('/reviews', async (c) => {
   const user = c.get('user')
   const body = await c.req.json()
-  const result = await q.createDecisionReview(c.env.DB, user.id, body)
+  const v = validateBody(decisionReviewSchema, body)
+  if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
+  const result = await q.createDecisionReview(c.env.DB, user.id, v.data)
   return c.json(result, 201)
 })
 
