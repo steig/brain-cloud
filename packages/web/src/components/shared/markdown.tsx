@@ -35,19 +35,24 @@ interface MarkdownProps {
   className?: string;
   /** Compact mode: smaller text, tighter spacing */
   compact?: boolean;
+  /** Prose size: 'sm' (default), 'base' for docs/long-form content */
+  size?: "sm" | "base";
 }
 
 export const Markdown = memo(function Markdown({
   content,
   className,
   compact = false,
+  size = "sm",
 }: MarkdownProps) {
   if (!content) return null;
 
   return (
     <div
       className={cn(
-        "prose prose-sm dark:prose-invert max-w-none",
+        "prose dark:prose-invert max-w-none",
+        size === "sm" && "prose-sm",
+        size === "base" && "prose-base prose-p:leading-7",
         "prose-headings:font-semibold prose-headings:tracking-tight",
         "prose-code:before:content-none prose-code:after:content-none",
         "prose-code:rounded prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:text-xs prose-code:font-normal",

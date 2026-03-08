@@ -303,10 +303,7 @@ export function DocsPage() {
                           "mb-12 pb-12 border-b border-border/30"
                       )}
                     >
-                      <Markdown
-                        content={section.content}
-                        className="prose-base prose-p:leading-7 prose-p:mb-5 prose-headings:mt-10 prose-headings:mb-4 prose-ul:my-4 prose-ol:my-4 prose-li:my-1 prose-blockquote:my-5 prose-pre:my-5 prose-hr:my-8 prose-table:my-6"
-                      />
+                      <Markdown content={section.content} size="base" />
                     </section>
                   ))}
                 </div>
