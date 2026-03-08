@@ -29,7 +29,8 @@ export const MIGRATION_SQL: string[] = [
 )`,
   `CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
     repo_url TEXT,
     description TEXT,
     owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
@@ -37,7 +38,8 @@ export const MIGRATION_SQL: string[] = [
     visibility TEXT DEFAULT 'private' CHECK (visibility IN ('private', 'team', 'public')),
     metadata TEXT DEFAULT '{}',
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(user_id, name)
 )`,
   `CREATE TABLE IF NOT EXISTS thoughts (
     id TEXT PRIMARY KEY,

@@ -7,6 +7,14 @@ const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
 app.use('*', adminGuard)
 
+/** Mask an email address for privacy: "john.doe@example.com" → "j***@example.com" */
+function maskEmail(email: string | null | undefined): string | null {
+  if (!email) return null
+  const [local, domain] = email.split('@')
+  if (!domain) return '***'
+  return `${local[0]}***@${domain}`
+}
+
 // GET /api/admin/stats — system dashboard stats
 app.get('/stats', async (c) => {
   const [users, thoughts, decisions, sessions, apiKeys] = await Promise.all([
@@ -57,7 +65,7 @@ app.get('/stats', async (c) => {
       api_keys: apiKeys?.count ?? 0,
     },
     daily_activity: dailyActivity,
-    top_users: topUsers,
+    top_users: (topUsers || []).map((u: any) => ({ ...u, email: maskEmail(u.email) })),
   })
 })
 

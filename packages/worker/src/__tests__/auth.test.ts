@@ -10,9 +10,9 @@ describe('Auth integration tests', () => {
     await seedTestUser(db)
   })
 
-  // ─── API Key Auth (legacy plaintext) ─────────────────────────────
+  // ─── API Key Auth (hashed) ───────────────────────────────────────
 
-  describe('legacy API key auth', () => {
+  describe('hashed API key auth', () => {
     it('valid API key returns 200', async () => {
       const res = await SELF.fetch(authFetch('/api/thoughts'))
       expect(res.status).toBe(200)

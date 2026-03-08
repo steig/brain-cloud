@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { SELF } from 'cloudflare:test'
-import { applyMigrations, getTestDb } from './helpers'
+import { applyMigrations, getTestDb, seedUserWithHashedKey } from './helpers'
 
 // ─── Two isolated test users ─────────────────────────────────────────────────
 
@@ -61,12 +61,9 @@ describe('Tenant Isolation', () => {
     const db = getTestDb()
     await applyMigrations(db)
 
-    // Seed both users
+    // Seed both users with hashed API keys
     for (const u of [USER_A, USER_B]) {
-      await db.prepare(
-        `INSERT OR IGNORE INTO users (id, name, email, api_key, system_role, is_active)
-         VALUES (?, ?, ?, ?, 'user', 1)`
-      ).bind(u.id, u.name, u.email, u.api_key).run()
+      await seedUserWithHashedKey(db, u)
     }
 
     // ── Seed thoughts ──

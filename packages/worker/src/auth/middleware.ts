@@ -3,7 +3,7 @@ import { createMiddleware } from 'hono/factory'
 import { getCookie } from 'hono/cookie'
 import type { Env, Variables } from '../types'
 import { verifyAccessToken, hashToken } from './jwt'
-import { findUserByKeyHash, findUserByApiKey } from '../db/queries'
+import { findUserByKeyHash } from '../db/queries'
 
 // Cookie name
 const ACCESS_TOKEN_COOKIE = 'brain_access'
@@ -31,17 +31,9 @@ export const authMiddleware = createMiddleware<{
   // 2. Fall back to X-API-Key header
   const apiKey = c.req.header('X-API-Key')
   if (apiKey) {
-    // Try hashed key lookup first (new multi-key system)
+    // Hashed key lookup only — no plaintext fallback
     const keyHash = await hashToken(apiKey)
-    let user = await findUserByKeyHash(c.env.DB, keyHash)
-
-    // Fallback to legacy plaintext match (no scope — treated as 'write')
-    if (!user) {
-      const legacyUser = await findUserByApiKey(c.env.DB, apiKey)
-      if (legacyUser) {
-        user = { ...legacyUser, key_scope: 'write' }
-      }
-    }
+    const user = await findUserByKeyHash(c.env.DB, keyHash)
 
     if (user) {
       // Check for expired key (returned with expired marker from findUserByKeyHash)

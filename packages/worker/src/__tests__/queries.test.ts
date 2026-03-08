@@ -47,13 +47,13 @@ describe('db/queries', () => {
 
   describe('upsertProject', () => {
     it('creates a new project and returns id', async () => {
-      const id = await q.upsertProject(env.DB, 'test-project', 'https://github.com/test')
+      const id = await q.upsertProject(env.DB, TEST_USER.id, 'test-project', 'https://github.com/test')
       expect(id).toBeTruthy()
     })
 
-    it('returns same id on upsert with same name', async () => {
-      const id1 = await q.upsertProject(env.DB, 'dup-project')
-      const id2 = await q.upsertProject(env.DB, 'dup-project', 'https://new-url')
+    it('returns same id on upsert with same name for same user', async () => {
+      const id1 = await q.upsertProject(env.DB, TEST_USER.id, 'dup-project')
+      const id2 = await q.upsertProject(env.DB, TEST_USER.id, 'dup-project', 'https://new-url')
       expect(id1).toBe(id2)
     })
   })

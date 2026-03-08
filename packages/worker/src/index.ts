@@ -25,7 +25,17 @@ app.onError(errorHandler)
 // Global middleware
 app.use('*', requestId)
 app.use('*', requestLogger())
-app.use('*', secureHeaders())
+app.use('*', secureHeaders({
+  strictTransportSecurity: 'max-age=31536000; includeSubDomains',
+  xContentTypeOptions: 'nosniff',
+  xFrameOptions: 'DENY',
+  referrerPolicy: 'strict-origin-when-cross-origin',
+  permissionsPolicy: {
+    camera: [],
+    microphone: [],
+    geolocation: [],
+  },
+}))
 app.use('*', cors({
   origin: (origin, c) => {
     const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'

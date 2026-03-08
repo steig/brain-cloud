@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:test'
 import { MIGRATION_SQL } from './migrations'
+import { hashToken } from '../auth/jwt'
 
 let migrationsApplied = false
 
@@ -30,12 +31,33 @@ export const TEST_USER = {
   api_key: TEST_API_KEY,
 } as const
 
-/** Seed a test user with a known API key */
+/** Seed a test user with a hashed API key in the api_keys table */
 export async function seedTestUser(db: D1Database) {
   await db.prepare(
-    `INSERT OR IGNORE INTO users (id, name, email, api_key, system_role, is_active)
-     VALUES (?, ?, ?, ?, 'user', 1)`
-  ).bind(TEST_USER.id, TEST_USER.name, TEST_USER.email, TEST_USER.api_key).run()
+    `INSERT OR IGNORE INTO users (id, name, email, system_role, is_active)
+     VALUES (?, ?, ?, 'user', 1)`
+  ).bind(TEST_USER.id, TEST_USER.name, TEST_USER.email).run()
+
+  // Insert hashed API key into api_keys table
+  const keyHash = await hashToken(TEST_API_KEY)
+  await db.prepare(
+    `INSERT OR IGNORE INTO api_keys (id, user_id, name, key_hash, key_prefix, scope, is_active, created_at)
+     VALUES (?, ?, ?, ?, ?, 'write', 1, datetime('now'))`
+  ).bind('test-key-001', TEST_USER.id, 'default-test-key', keyHash, TEST_API_KEY.slice(0, 12) + '...').run()
+}
+
+/** Seed a user with a hashed API key for tenant isolation tests */
+export async function seedUserWithHashedKey(db: D1Database, user: { id: string; name: string; email: string; api_key: string }) {
+  await db.prepare(
+    `INSERT OR IGNORE INTO users (id, name, email, system_role, is_active)
+     VALUES (?, ?, ?, 'user', 1)`
+  ).bind(user.id, user.name, user.email).run()
+
+  const keyHash = await hashToken(user.api_key)
+  await db.prepare(
+    `INSERT OR IGNORE INTO api_keys (id, user_id, name, key_hash, key_prefix, scope, is_active, created_at)
+     VALUES (?, ?, ?, ?, ?, 'write', 1, datetime('now'))`
+  ).bind(`key-${user.id}`, user.id, `${user.name}-key`, keyHash, user.api_key.slice(0, 12) + '...').run()
 }
 
 /** Build an authenticated Request object for the test worker */

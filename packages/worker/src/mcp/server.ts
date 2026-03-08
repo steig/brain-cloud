@@ -1416,7 +1416,7 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
     )
   }
 
-  // Auth via X-API-Key (hash-based lookup with legacy fallback)
+  // Auth via X-API-Key (hashed lookup only — no plaintext fallback)
   const apiKey = c.req.header('X-API-Key')
   if (!apiKey) {
     return c.json(
@@ -1427,12 +1427,7 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
 
   const { hashToken } = await import('../auth/jwt')
   const keyHash = await hashToken(apiKey)
-  let user = await q.findUserByKeyHash(c.env.DB, keyHash)
-  if (!user) {
-    // Legacy plaintext fallback
-    const legacyUser = await q.findUserByApiKey(c.env.DB, apiKey)
-    if (legacyUser) user = { ...legacyUser, key_scope: 'write' }
-  }
+  const user = await q.findUserByKeyHash(c.env.DB, keyHash)
   if (!user) {
     return c.json(
       { jsonrpc: '2.0', error: { code: -32000, message: 'Invalid API key' }, id: null },

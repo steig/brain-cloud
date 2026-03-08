@@ -43,8 +43,10 @@ export const errorHandler: ErrorHandler<{
       console.error(`[${requestId}] AppError ${err.code}:`, err.message, err.details)
     }
 
+    // Strip internal details from 5xx responses to avoid leaking sensitive info
+    const includeDetails = err.status < 500 && err.details != null
     return c.json(
-      { error: err.message, code: err.code, requestId, ...(err.details != null && { details: err.details }) },
+      { error: err.status >= 500 ? 'Internal Server Error' : err.message, code: err.code, requestId, ...(includeDetails && { details: err.details }) },
       err.status as Parameters<typeof c.json>[1],
     )
   }
