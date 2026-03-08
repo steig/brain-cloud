@@ -6,17 +6,25 @@ import type { Env, Variables } from './types'
 import { authRoutes } from './auth/routes'
 import { apiRoutes } from './api/index'
 import { mcpHandler } from './mcp/server'
-import { authMiddleware } from './auth/middleware'
+import { authMiddleware, scopeMiddleware } from './auth/middleware'
+import { deleteUserAccount } from './db/queries'
+import { requestId } from './middleware/request-id'
+import { errorHandler } from './middleware/error-handler'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
+// Error handler
+app.onError(errorHandler)
+
 // Global middleware
+app.use('*', requestId)
 app.use('*', logger())
 app.use('*', secureHeaders())
 app.use('*', cors({
   origin: (origin, c) => {
     const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'
-    if (!origin || origin === frontendUrl) return origin
+    const allowed = [frontendUrl, 'https://dash.brain-ai.dev']
+    if (!origin || allowed.includes(origin)) return origin
     return null
   },
   credentials: true,
@@ -27,8 +35,17 @@ app.use('*', cors({
 // Auth routes (no auth middleware — these handle their own auth)
 app.route('/auth', authRoutes)
 
-// API routes (require auth)
+// API routes (require auth + scope enforcement)
 app.use('/api/*', authMiddleware)
+app.use('/api/*', scopeMiddleware)
+
+// Account deletion (GDPR right-to-erasure) — registered before apiRoutes
+app.delete('/api/account', async (c) => {
+  const user = c.get('user')
+  await deleteUserAccount(c.env.DB, user.id)
+  return c.json({ success: true, message: 'Account and all associated data deleted' })
+})
+
 app.route('/api', apiRoutes)
 
 // MCP endpoint (auth via X-API-Key header, handled inside mcpHandler)

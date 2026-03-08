@@ -15,6 +15,7 @@ export interface Env {
   GITHUB_CLIENT_SECRET: string
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
+  SENTRY_DSN?: string
 
   // Vars (set in wrangler.toml)
   JWT_ISSUER: string
@@ -30,9 +31,11 @@ export interface AuthUser {
   email?: string
   avatar?: string
   system_role: 'user' | 'admin' | 'super_admin'
+  key_scope?: 'read' | 'write' | 'admin'
 }
 
 // Extended Hono variables
 export type Variables = {
   user: AuthUser
+  requestId: string
 }
