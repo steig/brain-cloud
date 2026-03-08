@@ -1272,4 +1272,156 @@ export async function deleteUserAccount(db: D1Database, userId: string): Promise
   await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run()
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Teams
+// ═══════════════════════════════════════════════════════════════════
+
+export async function createTeam(
+  db: D1Database,
+  userId: string,
+  data: { name: string; slug: string; description?: string }
+): Promise<Record<string, unknown>> {
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+
+  // Create team
+  await db.prepare(
+    `INSERT INTO teams (id, name, slug, description, created_by, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, data.name, data.slug, data.description ?? null, userId, now, now).run()
+
+  // Add creator as owner
+  await db.prepare(
+    `INSERT INTO team_members (id, team_id, user_id, role, joined_at)
+     VALUES (?, ?, ?, 'owner', ?)`
+  ).bind(crypto.randomUUID(), id, userId, now).run()
+
+  return { id, name: data.name, slug: data.slug, description: data.description ?? null, created_by: userId, created_at: now, updated_at: now }
+}
+
+export async function listUserTeams(
+  db: D1Database,
+  userId: string
+): Promise<Array<Record<string, unknown>>> {
+  const result = await db.prepare(
+    `SELECT t.*, tm.role as my_role
+     FROM teams t
+     JOIN team_members tm ON tm.team_id = t.id
+     WHERE tm.user_id = ?
+     ORDER BY t.created_at DESC`
+  ).bind(userId).all()
+  return result.results as Array<Record<string, unknown>>
+}
+
+export async function getTeam(
+  db: D1Database,
+  teamId: string
+): Promise<Record<string, unknown> | null> {
+  return await db.prepare('SELECT * FROM teams WHERE id = ?').bind(teamId).first()
+}
+
+export async function getTeamMembers(
+  db: D1Database,
+  teamId: string
+): Promise<Array<Record<string, unknown>>> {
+  const result = await db.prepare(
+    `SELECT tm.*, u.name as user_name, u.email as user_email, u.avatar_url as user_avatar
+     FROM team_members tm
+     JOIN users u ON u.id = tm.user_id
+     WHERE tm.team_id = ?
+     ORDER BY tm.joined_at ASC`
+  ).bind(teamId).all()
+  return result.results as Array<Record<string, unknown>>
+}
+
+export async function getTeamMember(
+  db: D1Database,
+  teamId: string,
+  userId: string
+): Promise<{ role: string } | null> {
+  return await db.prepare(
+    'SELECT role FROM team_members WHERE team_id = ? AND user_id = ?'
+  ).bind(teamId, userId).first()
+}
+
+export async function updateTeam(
+  db: D1Database,
+  teamId: string,
+  data: { name?: string; description?: string }
+): Promise<void> {
+  const sets: string[] = ['updated_at = datetime(\'now\')']
+  const params: unknown[] = []
+  if (data.name !== undefined) { sets.push('name = ?'); params.push(data.name) }
+  if (data.description !== undefined) { sets.push('description = ?'); params.push(data.description) }
+  params.push(teamId)
+  await db.prepare(`UPDATE teams SET ${sets.join(', ')} WHERE id = ?`).bind(...params).run()
+}
+
+export async function deleteTeam(db: D1Database, teamId: string): Promise<void> {
+  await db.prepare('DELETE FROM teams WHERE id = ?').bind(teamId).run()
+}
+
+export async function addTeamMember(
+  db: D1Database,
+  teamId: string,
+  userId: string,
+  role: string,
+  invitedBy?: string
+): Promise<Record<string, unknown>> {
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+  await db.prepare(
+    `INSERT INTO team_members (id, team_id, user_id, role, invited_by, joined_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(id, teamId, userId, role, invitedBy ?? null, now).run()
+  return { id, team_id: teamId, user_id: userId, role, joined_at: now }
+}
+
+export async function removeTeamMember(
+  db: D1Database,
+  teamId: string,
+  userId: string
+): Promise<void> {
+  await db.prepare(
+    'DELETE FROM team_members WHERE team_id = ? AND user_id = ?'
+  ).bind(teamId, userId).run()
+}
+
+export async function createTeamInvite(
+  db: D1Database,
+  teamId: string,
+  invitedBy: string,
+  email: string,
+  role: string
+): Promise<Record<string, unknown>> {
+  const id = crypto.randomUUID()
+  const token = crypto.randomUUID()
+  const now = new Date().toISOString()
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  await db.prepare(
+    `INSERT INTO team_invites (id, team_id, email, role, token, invited_by, expires_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).bind(id, teamId, email, role, token, invitedBy, expiresAt, now).run()
+  return { id, team_id: teamId, email, role, token, invited_by: invitedBy, expires_at: expiresAt, created_at: now }
+}
+
+export async function getTeamInviteByToken(
+  db: D1Database,
+  token: string
+): Promise<Record<string, unknown> | null> {
+  return await db.prepare(
+    'SELECT * FROM team_invites WHERE token = ?'
+  ).bind(token).first()
+}
+
+export async function acceptTeamInvite(
+  db: D1Database,
+  inviteId: string
+): Promise<void> {
+  await db.prepare(
+    `UPDATE team_invites SET accepted_at = datetime('now') WHERE id = ?`
+  ).bind(inviteId).run()
+}
+
 export { parseTags, parseJson, toJson }

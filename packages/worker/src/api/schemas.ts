@@ -168,6 +168,30 @@ export const learningCurveSchema = z.object({
   p_weeks: z.number().int().positive().optional(),
 })
 
+// --- Team schemas ---
+
+export const createTeamSchema = z.object({
+  name: z.string().min(1, 'name is required').max(100),
+  slug: z.string().min(1, 'slug is required').max(100)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'slug must be lowercase alphanumeric with hyphens'),
+  description: z.string().max(500).optional(),
+})
+
+export const updateTeamSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+})
+
+export const addMemberSchema = z.object({
+  user_id: z.string().min(1, 'user_id is required'),
+  role: z.enum(['member', 'admin']).optional(),
+})
+
+export const createInviteSchema = z.object({
+  email: z.string().email('valid email is required'),
+  role: z.enum(['member', 'admin']).optional(),
+})
+
 // --- Shared query param schemas ---
 
 export const limitSchema = z.object({
