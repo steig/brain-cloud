@@ -96,4 +96,87 @@ app.delete('/', async (c) => {
   return c.body(null, 204)
 })
 
+// GET /api/decisions/reviews — list all reviews for the user
+app.get('/reviews', async (c) => {
+  const user = c.get('user')
+  const { results } = await c.env.DB.prepare(
+    `SELECT dr.*, d.title as decision_title, d.chosen as decision_chosen
+     FROM decision_reviews dr
+     JOIN decisions d ON d.id = dr.decision_id
+     WHERE dr.user_id = ?
+     ORDER BY dr.created_at DESC
+     LIMIT 100`
+  ).bind(user.id).all()
+  return c.json(results.map(r => ({
+    ...r,
+    would_decide_same: r.would_decide_same === 1,
+  })))
+})
+
+// POST /api/decisions/reviews — create a review
+app.post('/reviews', async (c) => {
+  const user = c.get('user')
+  const body = await c.req.json()
+  const result = await q.createDecisionReview(c.env.DB, user.id, body)
+  return c.json(result, 201)
+})
+
+// GET /api/decisions/needing-review — decisions >14 days old with no review
+app.get('/needing-review', async (c) => {
+  const user = c.get('user')
+  const { results } = await c.env.DB.prepare(
+    `SELECT d.*
+     FROM decisions d
+     WHERE d.user_id = ? AND d.deleted_at IS NULL
+       AND d.created_at <= datetime('now', '-14 days')
+       AND d.id NOT IN (SELECT decision_id FROM decision_reviews WHERE user_id = ?)
+     ORDER BY d.created_at ASC
+     LIMIT 50`
+  ).bind(user.id, user.id).all()
+  return c.json(results.map(r => ({
+    ...r,
+    tags: q.parseTags((r as any).tags),
+    options: q.parseJson((r as any).options),
+  })))
+})
+
+// GET /api/decisions/review-stats — stats for the reviews page
+app.get('/review-stats', async (c) => {
+  const user = c.get('user')
+  const stats = await c.env.DB.prepare(
+    `SELECT
+       COUNT(*) as total_reviews,
+       AVG(CAST(outcome_rating AS REAL)) as avg_rating,
+       SUM(CASE WHEN would_decide_same = 1 THEN 1 ELSE 0 END) as would_repeat,
+       SUM(CASE WHEN outcome_rating >= 4 THEN 1 ELSE 0 END) as positive_outcomes
+     FROM decision_reviews WHERE user_id = ?`
+  ).bind(user.id).first()
+
+  const totalDecisions = await c.env.DB.prepare(
+    `SELECT COUNT(*) as count FROM decisions WHERE user_id = ? AND deleted_at IS NULL`
+  ).bind(user.id).first()
+
+  const reviewedDecisions = await c.env.DB.prepare(
+    `SELECT COUNT(DISTINCT decision_id) as count FROM decision_reviews WHERE user_id = ?`
+  ).bind(user.id).first()
+
+  const ratingDist = await c.env.DB.prepare(
+    `SELECT CAST(outcome_rating AS INTEGER) as rating, COUNT(*) as count
+     FROM decision_reviews
+     WHERE user_id = ? AND outcome_rating IS NOT NULL
+     GROUP BY CAST(outcome_rating AS INTEGER)
+     ORDER BY rating`
+  ).bind(user.id).all()
+
+  return c.json({
+    total_reviews: (stats as any)?.total_reviews ?? 0,
+    avg_rating: (stats as any)?.avg_rating ?? 0,
+    would_repeat: (stats as any)?.would_repeat ?? 0,
+    positive_outcomes: (stats as any)?.positive_outcomes ?? 0,
+    total_decisions: (totalDecisions as any)?.count ?? 0,
+    reviewed_decisions: (reviewedDecisions as any)?.count ?? 0,
+    rating_distribution: ratingDist.results,
+  })
+})
+
 export { app as decisionRoutes }
