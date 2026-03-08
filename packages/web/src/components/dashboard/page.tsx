@@ -5,9 +5,15 @@ import { Timeline } from "./timeline";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SetupWizard, DISMISSED_KEY } from "@/components/onboarding/setup-wizard";
 
+function daysAgo(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().slice(0, 10);
+}
+
 export function DashboardPage() {
   const timeline = useTimeline(7);
-  const summary = useBrainSummary("this week");
+  const summary = useBrainSummary(daysAgo(7), daysAgo(0));
   const thoughts = useThoughts({ order: "created_at.desc", limit: "5" });
   const decisions = useDecisions({ order: "created_at.desc", limit: "5" });
   const sessions = useSessions({ order: "started_at.desc", limit: "5" });

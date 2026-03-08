@@ -1,12 +1,13 @@
 import { Lightbulb, GitFork, Timer, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { BrainSummary } from "@/lib/api";
 
 interface StatsCardsProps {
   thoughtCount?: number;
   decisionCount?: number;
   sessionCount?: number;
-  summary?: Record<string, unknown>;
+  summary?: BrainSummary;
   isLoading: boolean;
 }
 
@@ -37,12 +38,10 @@ export function StatsCards({
       description: "this week",
     },
     {
-      title: "Activity",
-      value: summary
-        ? ((summary as Record<string, unknown>).total_entries as number) ?? 0
-        : 0,
+      title: "Active Days",
+      value: summary?.stats?.active_days ?? 0,
       icon: TrendingUp,
-      description: "total entries",
+      description: "this week",
     },
   ];
 
