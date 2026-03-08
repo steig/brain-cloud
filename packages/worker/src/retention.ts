@@ -18,6 +18,7 @@
 export interface RetentionResult {
   dx_events_deleted: number
   auth_sessions_deleted: number
+  rate_limits_deleted: number
 }
 
 const BATCH_SIZE = 1000
@@ -67,9 +68,16 @@ export async function handleRetention(db: D1Database): Promise<RetentionResult> 
     [authCutoff, authCutoff],
   )
 
-  console.log(
-    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d)`,
+  // Clean up old rate limit windows (older than 1 hour)
+  const rate_limits_deleted = await deleteBatched(
+    db,
+    `DELETE FROM rate_limits WHERE CAST(window AS INTEGER) < ?`,
+    [String(Math.floor(Date.now() / 1000) - 3600)],
   )
 
-  return { dx_events_deleted, auth_sessions_deleted }
+  console.log(
+    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h)`,
+  )
+
+  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted }
 }

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
-import { logger } from 'hono/logger'
+import { requestLogger } from './middleware/request-logger'
 import { deleteCookie } from 'hono/cookie'
 import type { Env, Variables } from './types'
 import { authRoutes } from './auth/routes'
@@ -11,6 +11,7 @@ import { authMiddleware, scopeMiddleware } from './auth/middleware'
 import { deleteUserAccount } from './db/queries'
 import { requestId } from './middleware/request-id'
 import { errorHandler } from './middleware/error-handler'
+import { apiRateLimiter, aiRateLimiter, authRateLimiter } from './middleware/rate-limiter'
 import { handleRetention } from './retention'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
@@ -20,7 +21,7 @@ app.onError(errorHandler)
 
 // Global middleware
 app.use('*', requestId)
-app.use('*', logger())
+app.use('*', requestLogger())
 app.use('*', secureHeaders())
 app.use('*', cors({
   origin: (origin, c) => {
@@ -35,11 +36,14 @@ app.use('*', cors({
 }))
 
 // Auth routes (no auth middleware — these handle their own auth)
+app.use('/auth/*', authRateLimiter)
 app.route('/auth', authRoutes)
 
 // API routes (require auth + scope enforcement)
 app.use('/api/*', authMiddleware)
 app.use('/api/*', scopeMiddleware)
+app.use('/api/*', apiRateLimiter)
+app.use('/api/ask/*', aiRateLimiter)
 
 // Account deletion (GDPR right-to-erasure) — registered before apiRoutes
 app.delete('/api/account', async (c) => {
@@ -66,7 +70,21 @@ app.route('/api', apiRoutes)
 app.all('/mcp', mcpHandler)
 
 // Health check
-app.get('/health', (c) => c.json({ status: 'ok', service: 'brain-cloud' }))
+app.get('/health', async (c) => {
+  const detail = c.req.query('detail') === 'true'
+
+  const base = { status: 'ok', service: 'brain-cloud', timestamp: new Date().toISOString() }
+
+  if (!detail) return c.json(base)
+
+  // Detailed health check — verify DB connectivity
+  try {
+    await c.env.DB.prepare('SELECT 1').first()
+    return c.json({ ...base, db: 'ok', vectorize: c.env.VECTORIZE ? 'configured' : 'not_configured' })
+  } catch {
+    return c.json({ ...base, db: 'error' }, 503)
+  }
+})
 
 // SPA fallback — Workers Static Assets handles static files automatically,
 // this catches client-side routes and returns index.html
