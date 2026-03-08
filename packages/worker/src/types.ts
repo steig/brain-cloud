@@ -19,6 +19,7 @@ export interface Env {
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
   SENTRY_DSN?: string
+  MAILCHANNELS_ENABLED?: string
 
   // Vars (set in wrangler.toml)
   JWT_ISSUER: string
