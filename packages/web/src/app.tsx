@@ -20,6 +20,7 @@ import { InsightsPage } from "@/components/insights/page";
 import { GitHubPage } from "@/components/github/page";
 import { TeamsPage } from "@/components/teams/page";
 import { ProjectsPage } from "@/components/projects/page";
+import { AskPage } from "@/components/ask/page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
 import { LandingPage } from "@/components/marketing/landing-page";
@@ -79,6 +80,7 @@ function AppLayout() {
             <Route path="decisions/reviews" element={<ReviewsPage />} />
             <Route path="sessions" element={<SessionsPage />} />
             <Route path="handoffs" element={<HandoffsPage />} />
+            <Route path="ask" element={<AskPage />} />
             <Route path="insights" element={<InsightsPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="teams" element={<TeamsPage />} />

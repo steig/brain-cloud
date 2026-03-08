@@ -15,6 +15,7 @@ import {
   FolderKanban,
   Github,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { BrainCloudLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ export const navSections: NavSection[] = [
   {
     title: "Intelligence",
     items: [
+      { to: "/ask", icon: Sparkles, label: "Ask Brain", shortcut: "A" },
       { to: "/insights", icon: Brain, label: "Insights" },
       { to: "/calendar", icon: Calendar, label: "Calendar" },
     ],
