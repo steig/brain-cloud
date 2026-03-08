@@ -16,8 +16,13 @@ import { CalendarPage } from "@/components/calendar/page";
 import { QuickEntryPage } from "@/components/quick-entry/page";
 import { ReviewsPage } from "@/components/decisions/reviews-page";
 import { InsightsPage } from "@/components/insights/page";
+import { GitHubPage } from "@/components/github/page";
+import { TeamsPage } from "@/components/teams/page";
+import { ProjectsPage } from "@/components/projects/page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
+import { LandingPage } from "@/components/marketing/landing-page";
+import { isMarketingSite } from "@/lib/config";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,9 +62,9 @@ function AppLayout() {
             <Route path="handoffs" element={<HandoffsPage />} />
             <Route path="insights" element={<InsightsPage />} />
             <Route path="calendar" element={<CalendarPage />} />
-            <Route path="teams" element={<PlaceholderPage title="Teams" />} />
-            <Route path="projects" element={<PlaceholderPage title="Projects" />} />
-            <Route path="github" element={<PlaceholderPage title="GitHub" />} />
+            <Route path="teams" element={<TeamsPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
+            <Route path="github" element={<GitHubPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Routes>
@@ -78,6 +83,9 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
+          {isMarketingSite && (
+            <Route path="/" element={<LandingPage />} />
+          )}
           <Route element={<AuthGuard />}>
             <Route path="/*" element={<AppLayout />} />
           </Route>

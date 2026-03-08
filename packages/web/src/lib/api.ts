@@ -201,6 +201,16 @@ export interface DxCost {
   request_count: number;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  repo_url: string | null;
+  visibility: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface Handoff {
   id: string;
   user_id: string;
@@ -321,3 +331,112 @@ export interface TimelineEntry {
   thought_type?: string;
   tags?: string[];
 }
+
+// Team types
+export interface Team {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  my_role?: string;
+}
+
+export interface TeamMember {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: string;
+  joined_at: string;
+  user_name: string;
+  user_email: string;
+  user_avatar: string | null;
+}
+
+export interface TeamInvite {
+  id: string;
+  team_id: string;
+  email: string;
+  role: string;
+  token: string;
+  invited_by: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface TeamDetail extends Team {
+  members: TeamMember[];
+}
+
+// Teams API
+export const teams = {
+  list: () => api.get<Team[]>("/api/teams"),
+  get: (id: string) => api.get<TeamDetail>(`/api/teams/${id}`),
+  create: (data: { name: string; slug: string; description?: string }) =>
+    api.post<Team>("/api/teams", data),
+  update: (id: string, data: { name?: string; description?: string }) =>
+    api.patch<void>(`/api/teams/${id}`, data),
+  delete: (id: string) => api.delete<void>(`/api/teams/${id}`),
+  removeMember: (teamId: string, userId: string) =>
+    api.delete<void>(`/api/teams/${teamId}/members/${userId}`),
+  listInvites: (teamId: string) =>
+    api.get<TeamInvite[]>(`/api/teams/${teamId}/invites`),
+  createInvite: (teamId: string, data: { email: string; role?: string }) =>
+    api.post<TeamInvite>(`/api/teams/${teamId}/invites`, data),
+  cancelInvite: (teamId: string, inviteId: string) =>
+    api.delete<void>(`/api/teams/${teamId}/invites/${inviteId}`),
+};
+
+// GitHub types
+export interface GitHubRepo {
+  id: string;
+  user_id: string;
+  owner: string;
+  name: string;
+  full_name: string;
+  html_url: string;
+  default_branch: string;
+  last_synced_at: string | null;
+  created_at: string;
+}
+
+export interface GitHubActivity {
+  id: string;
+  repo_id: string;
+  activity_type: "commit" | "pull_request" | "issue";
+  github_id: string;
+  title: string;
+  body: string;
+  author_login: string;
+  author_avatar: string | null;
+  state: string | null;
+  html_url: string;
+  created_at: string;
+  imported_at: string;
+  thought_id: string | null;
+  repo_full_name: string;
+  repo_owner: string;
+  repo_name: string;
+}
+
+// GitHub API helpers
+export const github = {
+  listRepos: () => api.get<GitHubRepo[]>("/api/github/repos"),
+  linkRepo: (owner: string, name: string) =>
+    api.post<GitHubRepo>("/api/github/repos", { owner, name }),
+  unlinkRepo: (id: string) => api.delete(`/api/github/repos/${id}`),
+  syncRepo: (id: string) =>
+    api.post<{ success: boolean; synced: { commits: number; pull_requests: number; issues: number } }>(
+      `/api/github/repos/${id}/sync`
+    ),
+  listActivity: (params?: { type?: string; repo_id?: string; since?: string; limit?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.type) sp.set("type", params.type);
+    if (params?.repo_id) sp.set("repo_id", params.repo_id);
+    if (params?.since) sp.set("since", params.since);
+    if (params?.limit) sp.set("limit", String(params.limit));
+    return api.get<GitHubActivity[]>(`/api/github/activity?${sp}`);
+  },
+};

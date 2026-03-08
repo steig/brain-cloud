@@ -7,6 +7,8 @@ import {
 import {
   api,
   auth,
+  github,
+  teams as teamsApi,
   type AuthUser,
   type ApiKey,
   type Thought,
@@ -22,6 +24,12 @@ import {
   type CoachingData,
   type PromptQualityStats,
   type LearningWeek,
+  type GitHubRepo,
+  type GitHubActivity,
+  type Team,
+  type TeamDetail,
+  type TeamInvite,
+  type Project,
 } from "./api";
 
 // Auth
@@ -299,7 +307,153 @@ export function useCreateDecisionReview() {
 export function useProjects() {
   return useQuery({
     queryKey: ["projects"],
-    queryFn: () =>
-      api.get<Array<{ id: string; name: string }>>("/api/projects"),
+    queryFn: () => api.get<Project[]>("/api/projects"),
+  });
+}
+
+export function useProject(id: string | undefined) {
+  return useQuery({
+    queryKey: ["project", id],
+    queryFn: () => api.get<Project>(`/api/projects/${id}`),
+    enabled: !!id,
+  });
+}
+
+export function useUpdateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string; repo_url?: string; visibility?: string }) =>
+      api.patch<Project>(`/api/projects/${id}`, data),
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["project", vars.id] });
+    },
+  });
+}
+
+// GitHub
+export function useGitHubRepos() {
+  return useQuery({
+    queryKey: ["github-repos"],
+    queryFn: github.listRepos,
+  });
+}
+
+export function useLinkGitHubRepo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ owner, name }: { owner: string; name: string }) =>
+      github.linkRepo(owner, name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["github-repos"] }),
+  });
+}
+
+export function useUnlinkGitHubRepo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => github.unlinkRepo(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["github-repos"] });
+      qc.invalidateQueries({ queryKey: ["github-activity"] });
+    },
+  });
+}
+
+export function useSyncGitHubRepo() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => github.syncRepo(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["github-repos"] });
+      qc.invalidateQueries({ queryKey: ["github-activity"] });
+    },
+  });
+}
+
+export function useGitHubActivity(params?: {
+  type?: string;
+  repo_id?: string;
+  since?: string;
+}) {
+  return useQuery({
+    queryKey: ["github-activity", params],
+    queryFn: () => github.listActivity(params),
+  });
+}
+
+// Teams
+export function useTeams() {
+  return useQuery({
+    queryKey: ["teams"],
+    queryFn: teamsApi.list,
+  });
+}
+
+export function useTeam(id: string | null) {
+  return useQuery({
+    queryKey: ["teams", id],
+    queryFn: () => teamsApi.get(id!),
+    enabled: !!id,
+  });
+}
+
+export function useCreateTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; slug: string; description?: string }) =>
+      teamsApi.create(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"] }),
+  });
+}
+
+export function useUpdateTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string }) =>
+      teamsApi.update(id, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"] }),
+  });
+}
+
+export function useDeleteTeam() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => teamsApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"] }),
+  });
+}
+
+export function useRemoveTeamMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, userId }: { teamId: string; userId: string }) =>
+      teamsApi.removeMember(teamId, userId),
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["teams", vars.teamId] }),
+  });
+}
+
+export function useTeamInvites(teamId: string | null) {
+  return useQuery({
+    queryKey: ["team-invites", teamId],
+    queryFn: () => teamsApi.listInvites(teamId!),
+    enabled: !!teamId,
+  });
+}
+
+export function useCreateTeamInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, ...data }: { teamId: string; email: string; role?: string }) =>
+      teamsApi.createInvite(teamId, data),
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["team-invites", vars.teamId] }),
+  });
+}
+
+export function useCancelTeamInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ teamId, inviteId }: { teamId: string; inviteId: string }) =>
+      teamsApi.cancelInvite(teamId, inviteId),
+    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["team-invites", vars.teamId] }),
   });
 }
