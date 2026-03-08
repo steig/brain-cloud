@@ -8,6 +8,24 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.2.0',
+    date: '2026-03-08',
+    title: 'Public Documentation & Install Script v3',
+    description: 'Full public docs site, redesigned installer, improved admin dashboard, and waitlist system.',
+    changes: [
+      { type: 'added', text: 'Public /docs page with getting started guide, core concepts, and full MCP tools reference' },
+      { type: 'added', text: 'Waitlist system with admin approval flow' },
+      { type: 'added', text: 'Sentry error tracking integration' },
+      { type: 'added', text: 'Install script v3 with client detection, modular installation, and idempotency' },
+      { type: 'improved', text: 'Admin dashboard UX with better stats and user management' },
+      { type: 'improved', text: 'Docs page UX — visual hierarchy, breadcrumbs, proper spacing, back-to-top button' },
+      { type: 'improved', text: 'Demo mode with guided tour and sample data' },
+      { type: 'improved', text: 'Markdown rendering in content lists' },
+      { type: 'fixed', text: 'D1 datetime parsing now treats timestamps as UTC' },
+      { type: 'fixed', text: 'Backend /docs route renamed to /api-docs to avoid SPA routing conflict' },
+    ],
+  },
+  {
     version: '1.1.0',
     date: '2026-03-08',
     title: 'Project Tracking & Auto-Update',
