@@ -21,6 +21,8 @@ import { GitHubPage } from "@/components/github/page";
 import { TeamsPage } from "@/components/teams/page";
 import { ProjectsPage } from "@/components/projects/page";
 import { AskPage } from "@/components/ask/page";
+import { AdminDashboardPage } from "@/components/admin/dashboard-page";
+import { AdminUsersPage } from "@/components/admin/users-page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
 import { LandingPage } from "@/components/marketing/landing-page";
@@ -86,6 +88,9 @@ function AppLayout() {
             <Route path="teams" element={<TeamsPage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="github" element={<GitHubPage />} />
+            <Route path="admin" element={<AdminDashboardPage />} />
+            <Route path="admin/dashboard" element={<AdminDashboardPage />} />
+            <Route path="admin/users" element={<AdminUsersPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Routes>

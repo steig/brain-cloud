@@ -7,6 +7,7 @@ import {
 import {
   api,
   auth,
+  admin,
   deleteAccount,
   github,
   related,
@@ -489,6 +490,39 @@ export function useCancelTeamInvite() {
       teamsApi.cancelInvite(teamId, inviteId),
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["team-invites", vars.teamId] }),
   });
+}
+
+// Admin
+export function useAdminStats() {
+  return useQuery({ queryKey: ['admin-stats'], queryFn: admin.getStats })
+}
+
+export function useAdminUsers(search?: string, page = 0) {
+  return useQuery({
+    queryKey: ['admin-users', search, page],
+    queryFn: () => admin.getUsers({ search, offset: page * 50, limit: 50 }),
+  })
+}
+
+export function useAdminUser(id: string | null) {
+  return useQuery({
+    queryKey: ['admin-user', id],
+    queryFn: () => admin.getUser(id!),
+    enabled: !!id,
+  })
+}
+
+export function useUpdateUserRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, system_role }: { id: string; system_role: string }) =>
+      admin.updateRole(id, system_role),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      qc.invalidateQueries({ queryKey: ['admin-user'] })
+      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+    },
+  })
 }
 
 // Cross-project insights

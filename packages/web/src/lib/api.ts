@@ -494,6 +494,37 @@ export const github = {
   },
 };
 
+// Admin types
+export interface AdminStats {
+  totals: { users: number; thoughts: number; decisions: number; sessions: number; api_keys: number }
+  daily_activity: Array<{ date: string; thoughts: number; decisions: number; sessions: number }>
+  top_users: Array<{ id: string; name: string; email: string; system_role: string; thought_count: number; decision_count: number; session_count: number }>
+}
+
+export interface AdminUser {
+  id: string; name: string; email: string; avatar: string | null; system_role: string
+  created_at: string; thought_count: number; session_count: number
+}
+
+export interface AdminUserDetail extends AdminUser {
+  counts: Record<string, number>
+}
+
+export const admin = {
+  getStats: () => request<AdminStats>('/api/admin/stats'),
+  getUsers: (params?: { limit?: number; offset?: number; search?: string }) => {
+    const qs = new URLSearchParams()
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.offset) qs.set('offset', String(params.offset))
+    if (params?.search) qs.set('search', params.search)
+    return request<{ users: AdminUser[]; total: number }>(`/api/admin/users?${qs}`)
+  },
+  getUser: (id: string) => request<AdminUserDetail>(`/api/admin/users/${id}`),
+  updateRole: (id: string, system_role: string) => request<void>(`/api/admin/users/${id}`, {
+    method: 'PATCH', body: JSON.stringify({ system_role }),
+  }),
+}
+
 // Cross-project insights
 export interface CrossProjectInsights {
   period_days: number;

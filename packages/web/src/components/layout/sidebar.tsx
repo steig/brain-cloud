@@ -16,6 +16,7 @@ import {
   Github,
   Search,
   Sparkles,
+  Shield,
 } from "lucide-react";
 import { BrainCloudLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
@@ -71,6 +72,7 @@ export const navSections: NavSection[] = [
     items: [
       { to: "/analytics", icon: BarChart3, label: "Analytics" },
       { to: "/settings", icon: Settings, label: "Settings" },
+      { to: "/admin", icon: Shield, label: "Admin" },
     ],
   },
 ];
