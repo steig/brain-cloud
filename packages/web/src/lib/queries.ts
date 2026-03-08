@@ -13,6 +13,7 @@ import {
   type Decision,
   type Session,
   type Sentiment,
+  type Handoff,
   type TimelineEntry,
   type DxCost,
 } from "./api";
@@ -190,6 +191,40 @@ export function useBrainSummary(period = "this week") {
   return useQuery({
     queryKey: ["brain-summary", period],
     queryFn: () => api.rpc<Record<string, unknown>>("brain_summary", { period }),
+  });
+}
+
+// Handoffs
+export function useHandoffs(params?: { to_project?: string; status?: string }) {
+  const searchParams = new URLSearchParams(
+    Object.entries(params || {}).filter(([, v]) => v) as [string, string][]
+  );
+  return useQuery({
+    queryKey: ["handoffs", params],
+    queryFn: () => api.get<Handoff[]>(`/api/handoffs?${searchParams}`),
+  });
+}
+
+export function useCreateHandoff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      to_project: string;
+      message: string;
+      handoff_type?: string;
+      priority?: string;
+      metadata?: Record<string, unknown>;
+    }) => api.post<Handoff>("/api/handoffs", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["handoffs"] }),
+  });
+}
+
+export function useClaimHandoff() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) =>
+      api.patch<{ success: boolean }>(`/api/handoffs/${id}/claim`, { note }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["handoffs"] }),
   });
 }
 

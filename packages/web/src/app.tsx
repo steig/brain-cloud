@@ -10,6 +10,7 @@ import { DecisionsPage } from "@/components/decisions/page";
 import { SessionsPage } from "@/components/sessions/page";
 import { AnalyticsPage } from "@/components/analytics/page";
 import { SettingsPage } from "@/components/settings/page";
+import { HandoffsPage } from "@/components/handoffs/page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
 
@@ -34,6 +35,7 @@ function AppLayout() {
             <Route path="thoughts" element={<ThoughtsPage />} />
             <Route path="decisions" element={<DecisionsPage />} />
             <Route path="sessions" element={<SessionsPage />} />
+            <Route path="handoffs" element={<HandoffsPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Routes>
