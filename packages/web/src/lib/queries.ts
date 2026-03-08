@@ -7,6 +7,7 @@ import {
 import {
   api,
   auth,
+  deleteAccount,
   github,
   teams as teamsApi,
   type AuthUser,
@@ -61,7 +62,8 @@ export function useApiKeys() {
 export function useCreateApiKey() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => auth.createApiKey(name),
+    mutationFn: ({ name, scope, expiresAt }: { name: string; scope?: string; expiresAt?: string }) =>
+      auth.createApiKey(name, scope, expiresAt),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["api-keys"] }),
   });
 }
@@ -71,6 +73,17 @@ export function useRevokeApiKey() {
   return useMutation({
     mutationFn: (id: string) => auth.revokeApiKeyById(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["api-keys"] }),
+  });
+}
+
+// Account Deletion
+export function useDeleteAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: deleteAccount,
+    onSuccess: () => {
+      qc.clear();
+    },
   });
 }
 

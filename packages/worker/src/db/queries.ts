@@ -1145,7 +1145,7 @@ export async function revokeApiKey(
 
 export async function findUserByKeyHash(
   db: D1Database, keyHash: string
-): Promise<{ id: string; name: string; email: string | null; avatar_url: string | null; system_role: string; key_scope: string } | null> {
+): Promise<{ id: string; name: string; email: string | null; avatar_url: string | null; system_role: string; key_scope: string; expired?: boolean } | null> {
   const row = await db.prepare(
     `SELECT u.id, u.name, u.email, u.avatar_url, u.system_role, ak.id as key_id, ak.scope, ak.expires_at
      FROM api_keys ak JOIN users u ON ak.user_id = u.id
@@ -1154,8 +1154,10 @@ export async function findUserByKeyHash(
 
   if (!row) return null
 
-  // Reject expired keys
-  if (row.expires_at && new Date(row.expires_at) < new Date()) return null
+  // Reject expired keys with a distinguishable marker
+  if (row.expires_at && new Date(row.expires_at) < new Date()) {
+    return { id: row.id, name: row.name, email: row.email, avatar_url: row.avatar_url, system_role: row.system_role, key_scope: row.scope, expired: true }
+  }
 
   // Update last_used_at (fire-and-forget)
   db.prepare('UPDATE api_keys SET last_used_at = datetime(\'now\') WHERE id = ?').bind(row.key_id).run()
@@ -1260,38 +1262,87 @@ export async function claimHandoff(
 // ═══════════════════════════════════════════════════════════════════
 
 export async function deleteUserAccount(db: D1Database, userId: string): Promise<void> {
-  // Delete child tables first (order matters for referential integrity)
-  const tables = [
-    'dx_events',
-    'dx_costs',
-    'dx_feedback',
-    'dx_patterns',
-    'conversations',
-    'prompt_metrics',
-    'sentiment',
-    'decision_reviews',
-    'session_scores',
-    'event_triggers',
-    'handoffs',
-    'thoughts',
-    'decisions',
-    'sessions',
-    'api_keys',
-    'oauth_accounts',
-    'auth_sessions',
-    'team_members',
-    'project_members',
-  ]
+  // Audit log (no PII — just user ID + timestamp)
+  console.log(`[ACCOUNT_DELETION] user=${userId} at=${new Date().toISOString()}`)
 
-  for (const table of tables) {
-    await db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).bind(userId).run()
+  // 1. Find teams where this user is the sole owner — delete those teams entirely
+  const { results: ownedTeams } = await db.prepare(
+    `SELECT tm.team_id FROM team_members tm
+     WHERE tm.user_id = ? AND tm.role = 'owner'`
+  ).bind(userId).all<{ team_id: string }>()
+
+  for (const { team_id } of ownedTeams ?? []) {
+    // Check if there are other owners
+    const otherOwner = await db.prepare(
+      `SELECT id FROM team_members WHERE team_id = ? AND role = 'owner' AND user_id != ?`
+    ).bind(team_id, userId).first()
+
+    if (!otherOwner) {
+      // Sole owner — cascade delete the entire team
+      await db.batch([
+        db.prepare('DELETE FROM team_invites WHERE team_id = ?').bind(team_id),
+        db.prepare('DELETE FROM team_members WHERE team_id = ?').bind(team_id),
+        db.prepare('DELETE FROM teams WHERE id = ?').bind(team_id),
+      ])
+    }
   }
 
-  // Clean up machines (user_id FK)
-  await db.prepare('DELETE FROM machines WHERE user_id = ?').bind(userId).run()
+  // 2. Find user's projects and clean up github data linked through them
+  const { results: userProjects } = await db.prepare(
+    `SELECT id FROM projects WHERE owner_id = ?`
+  ).bind(userId).all<{ id: string }>()
 
-  // Finally delete the user row
+  for (const { id: projectId } of userProjects ?? []) {
+    const { results: repos } = await db.prepare(
+      `SELECT id FROM github_repos WHERE project_id = ?`
+    ).bind(projectId).all<{ id: string }>()
+
+    for (const { id: repoId } of repos ?? []) {
+      await db.batch([
+        db.prepare('DELETE FROM github_activity WHERE repo_id = ?').bind(repoId),
+        db.prepare('DELETE FROM github_collaborators WHERE repo_id = ?').bind(repoId),
+      ])
+    }
+    await db.prepare('DELETE FROM github_repos WHERE project_id = ?').bind(projectId).run()
+  }
+
+  // 3. Delete user data from child tables (order matters for FK constraints)
+  //    D1 batch executes statements sequentially in order
+  await db.batch([
+    db.prepare('DELETE FROM dx_events WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM dx_costs WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM dx_feedback WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM dx_patterns WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM prompt_metrics WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM event_triggers WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM conversations WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM session_scores WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM sentiment WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM decision_reviews WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM handoffs WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM thoughts WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM decisions WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').bind(userId),
+  ])
+
+  // 4. Delete auth/identity + team/project membership
+  await db.batch([
+    db.prepare('DELETE FROM api_keys WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM auth_sessions WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM oauth_accounts WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM team_invites WHERE invited_by = ?').bind(userId),
+    db.prepare('DELETE FROM team_members WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM project_members WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM machines WHERE user_id = ?').bind(userId),
+    db.prepare('DELETE FROM projects WHERE owner_id = ?').bind(userId),
+  ])
+
+  // 5. Finally delete the user row
   await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run()
+
+  // TODO: Vectorize embeddings are not deleted here — would require listing
+  // all entry IDs for this user's thoughts/decisions first. Low priority since
+  // embeddings contain no PII (just vectors + IDs that no longer resolve).
 }
 
 // ═══════════════════════════════════════════════════════════════════

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
 import { logger } from 'hono/logger'
+import { deleteCookie } from 'hono/cookie'
 import type { Env, Variables } from './types'
 import { authRoutes } from './auth/routes'
 import { apiRoutes } from './api/index'
@@ -10,6 +11,7 @@ import { authMiddleware, scopeMiddleware } from './auth/middleware'
 import { deleteUserAccount } from './db/queries'
 import { requestId } from './middleware/request-id'
 import { errorHandler } from './middleware/error-handler'
+import { handleRetention } from './retention'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -41,9 +43,21 @@ app.use('/api/*', scopeMiddleware)
 
 // Account deletion (GDPR right-to-erasure) — registered before apiRoutes
 app.delete('/api/account', async (c) => {
+  const body = await c.req.json<{ confirm?: string }>().catch(() => ({ confirm: undefined }))
+  if (body.confirm !== 'DELETE MY ACCOUNT') {
+    return c.json({ error: 'Confirmation required. Send {"confirm": "DELETE MY ACCOUNT"}' }, 400)
+  }
+
   const user = c.get('user')
   await deleteUserAccount(c.env.DB, user.id)
-  return c.json({ success: true, message: 'Account and all associated data deleted' })
+
+  // Clear auth cookies
+  const secure = (c.env.FRONTEND_URL || '').startsWith('https')
+  const cookieOpts = { httpOnly: true, secure, sameSite: 'Lax' as const }
+  deleteCookie(c, 'brain_access', { ...cookieOpts, path: '/' })
+  deleteCookie(c, 'brain_refresh', { ...cookieOpts, path: '/auth' })
+
+  return c.body(null, 204)
 })
 
 app.route('/api', apiRoutes)
@@ -66,4 +80,13 @@ app.get('*', (c) => {
     ?? c.text('Not found', 404)
 })
 
-export default app
+export default {
+  fetch: app.fetch,
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      handleRetention(env.DB).then((result) => {
+        console.log('[scheduled] Retention complete:', result)
+      }),
+    )
+  },
+}

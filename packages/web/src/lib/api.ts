@@ -99,6 +99,15 @@ export const api = {
     }),
 };
 
+// Account deletion (GDPR right-to-erasure)
+export async function deleteAccount(): Promise<void> {
+  guardDemo();
+  await request<void>("/api/account", {
+    method: "DELETE",
+    body: JSON.stringify({ confirm: "DELETE MY ACCOUNT" }),
+  });
+}
+
 // Auth helpers
 export const auth = {
   me: () => api.get<AuthUser>("/auth/me"),
@@ -109,8 +118,8 @@ export const auth = {
   revokeApiKey: () => api.delete("/auth/api-key"),
   // Multi-key management
   listApiKeys: () => api.get<ApiKey[]>("/auth/api-keys"),
-  createApiKey: (name: string) =>
-    api.post<ApiKey & { key: string }>("/auth/api-keys", { name }),
+  createApiKey: (name: string, scope?: string, expiresAt?: string) =>
+    api.post<ApiKey & { key: string }>("/auth/api-keys", { name, scope, expires_at: expiresAt }),
   revokeApiKeyById: (id: string) => api.delete(`/auth/api-keys/${id}`),
   testApiKey: async (key: string): Promise<boolean> => {
     const res = await fetch(`${BASE}/auth/me`, {
@@ -125,6 +134,8 @@ export interface ApiKey {
   id: string;
   name: string;
   key_prefix: string;
+  scope: string;
+  expires_at: string | null;
   created_at: string;
   last_used_at: string | null;
   is_active: number;
