@@ -42,8 +42,8 @@ app.use('*', cors({
 app.use('/auth/*', authRateLimiter)
 app.route('/auth', authRoutes)
 
-// API docs (public, no auth)
-app.route('/docs', docsRoutes)
+// API docs (public, no auth) — served at /api-docs to avoid conflict with SPA /docs route
+app.route('/api-docs', docsRoutes)
 
 // Analytics tracking (public, no auth — before auth middleware)
 app.route('/t', analyticsTrackRoutes)

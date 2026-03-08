@@ -162,7 +162,7 @@ app.get('/', (c) => {
   <div id="swagger-ui"></div>
   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
   <script>
-    SwaggerUIBundle({ url: '/docs/openapi.json', dom_id: '#swagger-ui' })
+    SwaggerUIBundle({ url: '/api-docs/openapi.json', dom_id: '#swagger-ui' })
   </script>
 </body>
 </html>`)
