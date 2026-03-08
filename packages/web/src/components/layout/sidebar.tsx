@@ -17,6 +17,7 @@ import {
   Search,
   Sparkles,
   Shield,
+  GraduationCap,
 } from "lucide-react";
 import { BrainCloudLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,7 @@ export const navSections: NavSection[] = [
     items: [
       { to: "/ask", icon: Sparkles, label: "Ask Brain", shortcut: "A" },
       { to: "/insights", icon: Brain, label: "Insights" },
+      { to: "/coaching", icon: GraduationCap, label: "Coaching" },
       { to: "/calendar", icon: Calendar, label: "Calendar" },
     ],
   },

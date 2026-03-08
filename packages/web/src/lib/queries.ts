@@ -12,6 +12,7 @@ import {
   github,
   related,
   teams as teamsApi,
+  notifications as notificationsApi,
   type AuthUser,
   type ApiKey,
   type Thought,
@@ -35,6 +36,8 @@ import {
   type TeamInvite,
   type TeamStats,
   type TeamFeedItem,
+  type TeamCoaching,
+  type NotificationsResponse,
   type Project,
   type CrossProjectInsights,
 } from "./api";
@@ -507,6 +510,41 @@ export function useTeamFeed(teamId: string | null, limit = 50) {
     queryKey: ["team-feed", teamId, limit],
     queryFn: () => teamsApi.getFeed(teamId!, limit),
     enabled: !!teamId,
+  });
+}
+
+// Team Coaching
+export function useTeamCoaching(teamId: string | null, days = 7) {
+  return useQuery({
+    queryKey: ["team-coaching", teamId, days],
+    queryFn: () => teamsApi.getCoaching(teamId!, days),
+    enabled: !!teamId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Notifications
+export function useNotifications(params?: { unread?: boolean; limit?: number }) {
+  return useQuery({
+    queryKey: ["notifications", params],
+    queryFn: () => notificationsApi.list(params),
+    refetchInterval: 30 * 1000, // Poll every 30s
+  });
+}
+
+export function useMarkNotificationRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => notificationsApi.markRead(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => notificationsApi.markAllRead(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["notifications"] }),
   });
 }
 

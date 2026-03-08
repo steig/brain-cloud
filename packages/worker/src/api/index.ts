@@ -15,6 +15,7 @@ import { backfillRoutes } from './backfill'
 import { askRoutes } from './ask'
 import { insightsRoutes } from './insights'
 import { adminRoutes } from './admin'
+import { notificationRoutes } from './notifications'
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -36,5 +37,6 @@ api.route('/backfill', backfillRoutes)
 api.route('/ask', askRoutes)
 api.route('/insights', insightsRoutes)
 api.route('/admin', adminRoutes)
+api.route('/notifications', notificationRoutes)
 
 export { api as apiRoutes }

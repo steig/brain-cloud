@@ -452,6 +452,47 @@ export interface TeamFeedItem {
   user_avatar: string | null;
 }
 
+export interface TeamCoaching {
+  productivity_score: number | null;
+  highlights: string[];
+  challenges: string[];
+  suggestions: string[];
+  collaboration_patterns: string[];
+  period_days: number;
+  member_count: number;
+  generated_at: string;
+}
+
+// Notification types
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string | null;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationsResponse {
+  notifications: Notification[];
+  unread_count: number;
+}
+
+// Notifications API
+export const notifications = {
+  list: (params?: { unread?: boolean; limit?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.unread) sp.set("unread", "true");
+    if (params?.limit) sp.set("limit", String(params.limit));
+    return api.get<NotificationsResponse>(`/api/notifications?${sp}`);
+  },
+  markRead: (id: string) =>
+    api.patch<void>(`/api/notifications/${id}/read`, {}),
+  markAllRead: () => api.post<void>("/api/notifications/read-all"),
+};
+
 // Teams API
 export const teams = {
   list: () => api.get<Team[]>("/api/teams"),
@@ -473,6 +514,8 @@ export const teams = {
     api.get<TeamStats>(`/api/teams/${teamId}/stats`),
   getFeed: (teamId: string, limit = 50) =>
     api.get<TeamFeedItem[]>(`/api/teams/${teamId}/feed?limit=${limit}`),
+  getCoaching: (teamId: string, days = 7) =>
+    api.get<TeamCoaching>(`/api/teams/${teamId}/coaching?days=${days}`),
 };
 
 // GitHub types

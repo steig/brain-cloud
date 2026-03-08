@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { allNavItems } from "./sidebar";
+import { NotificationBell } from "./notification-bell";
 
 const mobileBottomItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -52,6 +53,8 @@ export function Header() {
           </NavLink>
         </div>
         <div className="hidden md:block" />
+        <div className="flex items-center gap-2">
+        <NotificationBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -82,6 +85,7 @@ export function Header() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </header>
 
       {/* Mobile hamburger overlay */}
