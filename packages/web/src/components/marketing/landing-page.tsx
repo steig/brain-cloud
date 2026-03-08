@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { BrainCloudLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { APP_URL } from "@/lib/config";
@@ -297,8 +298,8 @@ function HeroSection() {
             </a>
           </Button>
           <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-            <a href="#how-it-works" onClick={(e) => smoothScroll(e, "#how-it-works")}>
-              See How It Works
+            <a href={`${APP_URL}demo`}>
+              Try Demo
             </a>
           </Button>
         </div>
@@ -574,6 +575,10 @@ function Footer() {
 export function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Helmet>
+        <title>Brain Cloud — AI Memory for Developers</title>
+        <meta name="description" content="Your second brain for developer decisions. Capture thoughts, log decisions, review outcomes, and improve over time." />
+      </Helmet>
       <NavBar />
       <HeroSection />
       <ProblemSection />

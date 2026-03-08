@@ -2,6 +2,22 @@ import { API_BASE } from "./config";
 
 const BASE = API_BASE;
 
+// Demo mode flag — set by DemoProvider, checked by mutation methods
+let _demoMode = false;
+export function setDemoMode(enabled: boolean) {
+  _demoMode = enabled;
+}
+export function isDemoMode() {
+  return _demoMode;
+}
+
+class DemoBlockedError extends Error {
+  constructor() {
+    super("Sign up to use this feature");
+    this.name = "DemoBlockedError";
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {}
@@ -55,16 +71,27 @@ export class ApiError extends Error {
   }
 }
 
+function guardDemo(): void {
+  if (_demoMode) throw new DemoBlockedError();
+}
+
 // REST helpers
 export const api = {
   get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
-  patch: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  post: <T>(path: string, body?: unknown) => {
+    guardDemo();
+    return request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });
+  },
+  patch: <T>(path: string, body: unknown) => {
+    guardDemo();
+    return request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+  },
+  delete: <T>(path: string) => {
+    guardDemo();
+    return request<T>(path, { method: "DELETE" });
+  },
 
-  // RPC calls go to /api/rpc/<method>
+  // RPC calls go to /api/rpc/<method> (read-only RPCs, no guard)
   rpc: <T>(method: string, params: Record<string, unknown> = {}) =>
     request<T>(`/api/rpc/${method}`, {
       method: "POST",

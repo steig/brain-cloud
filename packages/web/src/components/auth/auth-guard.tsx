@@ -1,9 +1,16 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useUser } from "@/lib/queries";
+import { useDemo } from "@/lib/demo-context";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function AuthGuard() {
+  const { isDemo } = useDemo();
   const { data: user, isLoading, isError } = useUser();
+
+  // Demo mode bypasses auth
+  if (isDemo) {
+    return <Outlet />;
+  }
 
   if (isLoading) {
     return (

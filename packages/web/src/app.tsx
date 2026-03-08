@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Helmet, HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { LoginPage } from "@/components/auth/login";
@@ -22,6 +23,9 @@ import { ProjectsPage } from "@/components/projects/page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
 import { LandingPage } from "@/components/marketing/landing-page";
+import { DemoProvider } from "@/lib/demo-context";
+import { DemoBanner } from "@/components/demo/demo-banner";
+import { DemoEntry } from "@/components/demo/demo-entry";
 import { isMarketingSite } from "@/lib/config";
 
 const queryClient = new QueryClient({
@@ -29,6 +33,19 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30 * 1000,
       retry: 1,
+    },
+    mutations: {
+      onError: (error) => {
+        if (error.name === "DemoBlockedError") {
+          // Show a toast for demo-blocked mutations
+          const el = document.createElement("div");
+          el.className =
+            "fixed bottom-4 right-4 z-50 rounded-md bg-primary px-4 py-3 text-sm text-primary-foreground shadow-lg";
+          el.textContent = error.message;
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 3000);
+        }
+      },
     },
   },
 });
@@ -46,11 +63,13 @@ function PlaceholderPage({ title }: { title: string }) {
 
 function AppLayout() {
   return (
-    <div className="flex h-screen">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-auto p-4 pb-18 md:p-6 md:pb-6">
+    <div className="flex h-screen flex-col">
+      <DemoBanner />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <Header />
+          <main className="flex-1 overflow-auto p-4 pb-18 md:p-6 md:pb-6">
           <Routes>
             <Route index element={<DashboardPage />} />
             <Route path="dashboard" element={<DashboardPage />} />
@@ -68,29 +87,41 @@ function AppLayout() {
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Routes>
-        </main>
+          </main>
+        </div>
+        <CommandPalette />
       </div>
-      <CommandPalette />
     </div>
   );
 }
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/privacy" element={<PrivacyPolicyPage />} />
-          <Route path="/terms" element={<TermsOfServicePage />} />
-          {isMarketingSite && (
-            <Route path="/" element={<LandingPage />} />
-          )}
-          <Route element={<AuthGuard />}>
-            <Route path="/*" element={<AppLayout />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <Helmet>
+          <title>Brain Cloud — AI Memory for Developers</title>
+          <meta name="description" content="Capture thoughts, log decisions, review outcomes, and improve over time. A structured learning loop for developers." />
+          <meta property="og:title" content="Brain Cloud — AI Memory for Developers" />
+          <meta property="og:description" content="Your second brain for developer decisions. Capture thoughts, log decisions, and learn from your work." />
+        </Helmet>
+        <BrowserRouter>
+          <DemoProvider>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsOfServicePage />} />
+              <Route path="/demo" element={<DemoEntry />} />
+              {isMarketingSite && (
+                <Route path="/" element={<LandingPage />} />
+              )}
+              <Route element={<AuthGuard />}>
+                <Route path="/*" element={<AppLayout />} />
+              </Route>
+            </Routes>
+          </DemoProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </HelmetProvider>
   );
 }
