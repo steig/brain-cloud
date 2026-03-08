@@ -12,6 +12,10 @@ import { SessionsPage } from "@/components/sessions/page";
 import { AnalyticsPage } from "@/components/analytics/page";
 import { SettingsPage } from "@/components/settings/page";
 import { HandoffsPage } from "@/components/handoffs/page";
+import { CalendarPage } from "@/components/calendar/page";
+import { QuickEntryPage } from "@/components/quick-entry/page";
+import { ReviewsPage } from "@/components/decisions/reviews-page";
+import { InsightsPage } from "@/components/insights/page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
 
@@ -45,13 +49,14 @@ function AppLayout() {
           <Routes>
             <Route index element={<DashboardPage />} />
             <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="quick-entry" element={<PlaceholderPage title="Quick Entry" />} />
+            <Route path="quick-entry" element={<QuickEntryPage />} />
             <Route path="thoughts" element={<ThoughtsPage />} />
             <Route path="decisions" element={<DecisionsPage />} />
+            <Route path="decisions/reviews" element={<ReviewsPage />} />
             <Route path="sessions" element={<SessionsPage />} />
             <Route path="handoffs" element={<HandoffsPage />} />
-            <Route path="insights" element={<PlaceholderPage title="Insights" />} />
-            <Route path="calendar" element={<PlaceholderPage title="Calendar" />} />
+            <Route path="insights" element={<InsightsPage />} />
+            <Route path="calendar" element={<CalendarPage />} />
             <Route path="teams" element={<PlaceholderPage title="Teams" />} />
             <Route path="projects" element={<PlaceholderPage title="Projects" />} />
             <Route path="github" element={<PlaceholderPage title="GitHub" />} />

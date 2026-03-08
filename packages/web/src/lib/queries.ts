@@ -16,6 +16,12 @@ import {
   type Handoff,
   type TimelineEntry,
   type DxCost,
+  type DecisionReview,
+  type ReviewStats,
+  type BrainSummary,
+  type CoachingData,
+  type PromptQualityStats,
+  type LearningWeek,
 } from "./api";
 
 // Auth
@@ -140,6 +146,15 @@ export function useSentiment(params?: Record<string, string>) {
   });
 }
 
+export function useCreateSentiment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<Sentiment>) =>
+      api.post<Sentiment>("/api/sentiment", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sentiment"] }),
+  });
+}
+
 // Timeline (RPC)
 export function useTimeline(days = 7) {
   return useQuery({
@@ -187,10 +202,22 @@ export function usePromptQuality(days = 30) {
   });
 }
 
-export function useBrainSummary(period = "this week") {
+export function useBrainSummary(fromDate: string, toDate: string, projectId?: string) {
   return useQuery({
-    queryKey: ["brain-summary", period],
-    queryFn: () => api.rpc<Record<string, unknown>>("brain_summary", { period }),
+    queryKey: ["brain-summary", fromDate, toDate, projectId],
+    queryFn: () =>
+      api.rpc<BrainSummary>("brain_summary", {
+        p_from_date: fromDate,
+        p_to_date: toDate,
+        ...(projectId ? { p_project_id: projectId } : {}),
+      }),
+  });
+}
+
+export function useCoachingData(days = 7) {
+  return useQuery({
+    queryKey: ["coaching-data", days],
+    queryFn: () => api.rpc<CoachingData>("coaching_daily_data", { p_days: days }),
   });
 }
 
@@ -225,6 +252,46 @@ export function useClaimHandoff() {
     mutationFn: ({ id, note }: { id: string; note?: string }) =>
       api.patch<{ success: boolean }>(`/api/handoffs/${id}/claim`, { note }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["handoffs"] }),
+  });
+}
+
+// Decision Reviews
+export function useDecisionReviews() {
+  return useQuery({
+    queryKey: ["decision-reviews"],
+    queryFn: () => api.get<DecisionReview[]>("/api/decisions/reviews"),
+  });
+}
+
+export function useDecisionsNeedingReview() {
+  return useQuery({
+    queryKey: ["decisions-needing-review"],
+    queryFn: () => api.get<Decision[]>("/api/decisions/needing-review"),
+  });
+}
+
+export function useReviewStats() {
+  return useQuery({
+    queryKey: ["review-stats"],
+    queryFn: () => api.get<ReviewStats>("/api/decisions/review-stats"),
+  });
+}
+
+export function useCreateDecisionReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      decision_id: string;
+      outcome_rating?: number;
+      outcome_notes?: string;
+      lessons_learned?: string;
+      would_decide_same?: boolean;
+    }) => api.post<{ id: string }>("/api/decisions/reviews", data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["decision-reviews"] });
+      qc.invalidateQueries({ queryKey: ["decisions-needing-review"] });
+      qc.invalidateQueries({ queryKey: ["review-stats"] });
+    },
   });
 }
 

@@ -216,6 +216,99 @@ export interface Handoff {
   created_at: string;
 }
 
+export interface DecisionReview {
+  id: string;
+  decision_id: string;
+  user_id: string;
+  review_type: string;
+  outcome_rating: number | null;
+  outcome_notes: string | null;
+  lessons_learned: string | null;
+  would_decide_same: boolean | null;
+  follow_up_days: number | null;
+  next_review_at: string | null;
+  created_at: string;
+  decision_title: string;
+  decision_chosen: string | null;
+}
+
+export interface ReviewStats {
+  total_reviews: number;
+  avg_rating: number;
+  would_repeat: number;
+  positive_outcomes: number;
+  total_decisions: number;
+  reviewed_decisions: number;
+  rating_distribution: Array<{ rating: number; count: number }>;
+}
+
+export interface BrainSummary {
+  stats: {
+    total_thoughts: number;
+    total_decisions: number;
+    total_sessions: number;
+    active_days: number;
+    total_session_minutes: number;
+    thoughts_by_type: Record<string, number>;
+  };
+  themes: Array<{ tag: string; cnt: number }>;
+  decisions: Array<{
+    title: string;
+    chosen: string;
+    rationale: string;
+    date: string;
+    tags: string[];
+  }>;
+  insights: Array<{
+    content: string;
+    date: string;
+    tags: string[];
+  }>;
+  accomplishments: Array<{ content: string; date: string }>;
+  blockers: Array<{ content: string; date: string }>;
+}
+
+export interface CoachingData {
+  sessions: {
+    total: number;
+    completed: number;
+    with_accomplishments: number;
+    with_blockers: number;
+  };
+  thoughts: {
+    total: number;
+    insights: number;
+    todos: number;
+    ideas: number;
+  };
+  decisions: {
+    total: number;
+    with_outcome: number;
+  };
+  sentiment: Array<{ feeling: string; count: number }>;
+  conversations: {
+    total: number;
+    avg_quality: number | null;
+    goal_rate: number | null;
+    context_rate: number | null;
+  };
+}
+
+export interface PromptQualityStats {
+  total: number;
+  avg_quality: number | null;
+  goal_rate: number | null;
+  context_rate: number | null;
+  avg_turns: number | null;
+}
+
+export interface LearningWeek {
+  week: string;
+  total_conversations: number;
+  avg_quality: number | null;
+  goal_rate: number | null;
+}
+
 export interface TimelineEntry {
   type: "thought" | "decision" | "session";
   id: string;
