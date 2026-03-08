@@ -91,9 +91,31 @@ export async function upsertProject(
   return id
 }
 
-export async function listProjects(db: D1Database): Promise<Array<{ id: string; name: string }>> {
-  const { results } = await db.prepare('SELECT id, name FROM projects ORDER BY name').all()
-  return results as Array<{ id: string; name: string }>
+export async function listProjects(db: D1Database): Promise<Array<{ id: string; name: string; description: string | null; repo_url: string | null; visibility: string; created_at: string }>> {
+  const { results } = await db.prepare('SELECT id, name, description, repo_url, visibility, created_at FROM projects ORDER BY name').all()
+  return results as Array<{ id: string; name: string; description: string | null; repo_url: string | null; visibility: string; created_at: string }>
+}
+
+export async function getProject(db: D1Database, id: string) {
+  return db.prepare('SELECT id, name, description, repo_url, visibility, created_at, updated_at FROM projects WHERE id = ?')
+    .bind(id).first<{ id: string; name: string; description: string | null; repo_url: string | null; visibility: string; created_at: string; updated_at: string }>()
+}
+
+export async function updateProject(
+  db: D1Database,
+  id: string,
+  data: { name?: string; description?: string; repo_url?: string; visibility?: string }
+) {
+  const sets: string[] = []
+  const vals: unknown[] = []
+  if (data.name !== undefined) { sets.push('name = ?'); vals.push(data.name) }
+  if (data.description !== undefined) { sets.push('description = ?'); vals.push(data.description) }
+  if (data.repo_url !== undefined) { sets.push('repo_url = ?'); vals.push(data.repo_url) }
+  if (data.visibility !== undefined) { sets.push('visibility = ?'); vals.push(data.visibility) }
+  if (sets.length === 0) return
+  sets.push("updated_at = datetime('now')")
+  vals.push(id)
+  await db.prepare(`UPDATE projects SET ${sets.join(', ')} WHERE id = ?`).bind(...vals).run()
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1404,6 +1426,25 @@ export async function createTeamInvite(
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(id, teamId, email, role, token, invitedBy, expiresAt, now).run()
   return { id, team_id: teamId, email, role, token, invited_by: invitedBy, expires_at: expiresAt, created_at: now }
+}
+
+export async function listTeamInvites(
+  db: D1Database,
+  teamId: string
+): Promise<Array<Record<string, unknown>>> {
+  const result = await db.prepare(
+    `SELECT * FROM team_invites
+     WHERE team_id = ? AND accepted_at IS NULL AND expires_at > datetime('now')
+     ORDER BY created_at DESC`
+  ).bind(teamId).all()
+  return result.results as Array<Record<string, unknown>>
+}
+
+export async function deleteTeamInvite(
+  db: D1Database,
+  inviteId: string
+): Promise<void> {
+  await db.prepare('DELETE FROM team_invites WHERE id = ?').bind(inviteId).run()
 }
 
 export async function getTeamInviteByToken(
