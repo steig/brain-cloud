@@ -265,15 +265,15 @@ export function DocsPage() {
           <main className="min-w-0 flex-1 px-5 py-10 md:px-10 lg:px-14">
             <div className="mx-auto max-w-[680px]">
               {/* ── Hero ── */}
-              <div className="mb-14 pb-8 border-b border-border/40">
-                <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground mb-4">
+              <div className="mb-10 pb-6 border-b border-border/40">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground mb-3">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                   v1.2.0
                 </div>
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                   Brain Cloud Documentation
                 </h1>
-                <p className="mt-4 text-lg leading-relaxed text-muted-foreground max-w-lg">
+                <p className="mt-2 text-base leading-relaxed text-muted-foreground max-w-lg">
                   Give your AI persistent memory. Set up in 2 minutes, then just
                   work normally — Claude handles the rest.
                 </p>
@@ -281,19 +281,14 @@ export function DocsPage() {
 
               {/* ── Sections ── */}
               {docs.map((category) => (
-                <div key={category.title} className="mb-20">
+                <div key={category.title} className="mb-12">
                   {/* Category header */}
-                  <div className="mb-10">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-2xl">{CATEGORY_META[category.title]?.icon ?? "📄"}</span>
-                      <h2 className="text-xl font-bold tracking-tight">
-                        {category.title}
-                      </h2>
-                    </div>
-                    <p className="text-sm text-muted-foreground ml-[2.375rem]">
-                      {CATEGORY_META[category.title]?.description}
-                    </p>
-                    <div className="mt-4 h-px bg-gradient-to-r from-border/60 to-transparent" />
+                  <div className="mb-5 flex items-center gap-2.5">
+                    <span className="text-lg">{CATEGORY_META[category.title]?.icon ?? "📄"}</span>
+                    <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                      {category.title}
+                    </h2>
+                    <div className="h-px flex-1 bg-border/40" />
                   </div>
 
                   {category.sections.map((section, i) => (
@@ -301,31 +296,26 @@ export function DocsPage() {
                       key={section.id}
                       id={section.id}
                       ref={registerRef}
-                      className="scroll-mt-24 mb-6"
+                      className="scroll-mt-24 mb-4"
                     >
                       {/* Section card */}
                       <div
                         className={cn(
-                          "rounded-xl border border-border/40 bg-card/50 p-6 md:p-8",
+                          "rounded-lg border border-border/40 bg-card/50 px-5 py-5 md:px-6 md:py-5",
                           isToolsRef(section.id) && "docs-tools-ref"
                         )}
                       >
-                        {/* Section title */}
-                        <div className="flex items-center gap-3 mb-6">
-                          <h3 className="text-lg font-semibold tracking-tight">
-                            {section.title}
-                          </h3>
+                        {/* Section header */}
+                        <h2 className="text-base font-semibold tracking-tight mb-3 flex items-center gap-2.5">
+                          {section.title}
                           {isToolsRef(section.id) && (
-                            <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                              Reference
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                              Ref
                             </span>
                           )}
-                        </div>
+                        </h2>
                         <Markdown content={section.content} size="base" />
                       </div>
-
-                      {/* Spacer between cards */}
-                      {i < category.sections.length - 1 && <div className="h-6" />}
                     </section>
                   ))}
                 </div>
