@@ -42,7 +42,7 @@ export function ThoughtsPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tour="thoughts">
       <Helmet><title>Thoughts — Brain Cloud</title></Helmet>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Thoughts</h1>

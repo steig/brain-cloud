@@ -27,7 +27,7 @@ export function DashboardPage() {
   const showWizard = !isDemo && !dismissed && !apiKeys.isLoading && activeKeys.length === 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-tour="dashboard">
       <Helmet><title>Dashboard — Brain Cloud</title></Helmet>
       <h1 className="text-2xl font-bold">Dashboard</h1>
 

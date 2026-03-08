@@ -6,7 +6,7 @@ export function DecisionsPage() {
   const decisions = useDecisions({ order: "created_at.desc" });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tour="decisions">
       <Helmet><title>Decisions — Brain Cloud</title></Helmet>
       <h1 className="text-2xl font-bold">Decisions</h1>
       <DecisionList
