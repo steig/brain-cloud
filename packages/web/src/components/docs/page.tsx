@@ -11,11 +11,19 @@ import { docs } from "@/data/docs";
 
 const ALL_SECTIONS = docs.flatMap((cat) => cat.sections);
 
-/* ── Category icons (emoji as lightweight icons) ── */
-const CATEGORY_ICON: Record<string, string> = {
-  Guide: "📖",
-  "Core Concepts": "🧠",
-  "Tools Reference": "🔧",
+const CATEGORY_META: Record<string, { icon: string; description: string }> = {
+  Guide: {
+    icon: "📖",
+    description: "Get up and running with Brain Cloud",
+  },
+  "Core Concepts": {
+    icon: "🧠",
+    description: "Understand how Brain Cloud thinks",
+  },
+  "Tools Reference": {
+    icon: "🔧",
+    description: "Every MCP tool, documented",
+  },
 };
 
 /* ── Sidebar TOC ── */
@@ -29,14 +37,14 @@ function TOCContent({
   onNavigate?: (id: string) => void;
 }) {
   return (
-    <nav aria-label="Table of contents" className="space-y-5 text-[13px]">
+    <nav aria-label="Table of contents" className="space-y-6 text-[13px]">
       {docs.map((category) => (
         <div key={category.title}>
-          <h3 className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-            <span>{CATEGORY_ICON[category.title] ?? "📄"}</span>
+          <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            <span>{CATEGORY_META[category.title]?.icon ?? "📄"}</span>
             {category.title}
           </h3>
-          <ul className="space-y-px border-l border-border/50 ml-1">
+          <ul className="space-y-0.5 border-l border-border/40 ml-1.5">
             {category.sections.map((section) => (
               <li key={section.id}>
                 <a
@@ -76,7 +84,6 @@ export function DocsPage() {
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
   const isScrollingTo = useRef(false);
 
-  // IntersectionObserver for active section tracking
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -91,28 +98,24 @@ export function DocsPage() {
       },
       { rootMargin: "-80px 0px -60% 0px", threshold: 0 }
     );
-
     const timer = setTimeout(() => {
       for (const section of ALL_SECTIONS) {
         const el = sectionRefs.current.get(section.id);
         if (el) observer.observe(el);
       }
     }, 100);
-
     return () => {
       clearTimeout(timer);
       observer.disconnect();
     };
   }, []);
 
-  // Show "back to top" after scrolling down
   useEffect(() => {
     const onScroll = () => setShowBackToTop(window.scrollY > 600);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Scroll to hash on mount
   useEffect(() => {
     const hash = location.hash.replace("#", "");
     if (hash) {
@@ -130,7 +133,6 @@ export function DocsPage() {
     }
   }, [location.hash]);
 
-  // Close mobile TOC on Escape
   useEffect(() => {
     if (!mobileOpen) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -160,11 +162,13 @@ export function DocsPage() {
     []
   );
 
-  // Find the current category for the active section
   const activeCategory = docs.find((cat) =>
     cat.sections.some((s) => s.id === activeId)
   );
   const activeSection = ALL_SECTIONS.find((s) => s.id === activeId);
+
+  // Determine if a section is a "tools reference" section (has parameter tables)
+  const isToolsRef = (sectionId: string) => sectionId.startsWith("ref-");
 
   return (
     <>
@@ -185,19 +189,18 @@ export function DocsPage() {
         {/* ── Header ── */}
         <header className="sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 to="/"
                 className="inline-flex items-center gap-2 text-foreground hover:text-foreground/80"
               >
                 <BrainCloudLogo size={22} variant="full" />
               </Link>
-              <span className="hidden text-border sm:inline">/</span>
-              <span className="hidden text-sm font-medium text-muted-foreground sm:inline">
+              <span className="hidden text-muted-foreground/30 sm:inline">/</span>
+              <span className="hidden text-sm font-medium text-foreground sm:inline">
                 Docs
               </span>
             </div>
-
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
@@ -206,11 +209,7 @@ export function DocsPage() {
                 aria-expanded={mobileOpen}
                 onClick={() => setMobileOpen(!mobileOpen)}
               >
-                {mobileOpen ? (
-                  <X className="h-3.5 w-3.5" />
-                ) : (
-                  <Menu className="h-3.5 w-3.5" />
-                )}
+                {mobileOpen ? <X className="h-3.5 w-3.5" /> : <Menu className="h-3.5 w-3.5" />}
                 Menu
               </Button>
               <Link
@@ -223,29 +222,27 @@ export function DocsPage() {
           </div>
         </header>
 
-        {/* ── Breadcrumb bar (desktop) ── */}
+        {/* ── Breadcrumb ── */}
         {activeCategory && activeSection && (
-          <div className="hidden border-b border-border/30 bg-muted/30 md:block">
+          <div className="hidden border-b border-border/30 bg-muted/20 md:block">
             <div className="mx-auto flex max-w-7xl items-center gap-1.5 px-4 py-2 text-xs text-muted-foreground lg:px-6">
               <span>Docs</span>
               <ChevronRight className="h-3 w-3" />
               <span>{activeCategory.title}</span>
               <ChevronRight className="h-3 w-3" />
-              <span className="font-medium text-foreground">
-                {activeSection.title}
-              </span>
+              <span className="font-medium text-foreground">{activeSection.title}</span>
             </div>
           </div>
         )}
 
-        {/* ── Mobile TOC overlay ── */}
+        {/* ── Mobile TOC ── */}
         {mobileOpen && (
           <div className="fixed inset-0 z-20 md:hidden">
             <div
               className="absolute inset-0 bg-background/80 backdrop-blur-sm"
               onClick={() => setMobileOpen(false)}
             />
-            <div className="absolute left-0 top-[57px] bottom-0 w-72 overflow-y-auto border-r bg-background p-5 shadow-lg">
+            <div className="absolute left-0 top-[57px] bottom-0 w-72 overflow-y-auto border-r bg-background p-5 shadow-xl">
               <TOCContent
                 activeId={activeId}
                 onSelect={() => setMobileOpen(false)}
@@ -255,41 +252,48 @@ export function DocsPage() {
           </div>
         )}
 
-        {/* ── Main layout ── */}
+        {/* ── Layout ── */}
         <div className="mx-auto flex w-full max-w-7xl flex-1">
-          {/* Desktop sidebar */}
+          {/* Sidebar */}
           <aside className="hidden md:block w-60 shrink-0 border-r border-border/30">
-            <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto p-5 pr-3">
+            <div className="sticky top-14 h-[calc(100vh-3.5rem)] overflow-y-auto px-5 py-6">
               <TOCContent activeId={activeId} onNavigate={scrollToSection} />
             </div>
           </aside>
 
           {/* Content */}
-          <main className="min-w-0 flex-1 px-5 py-10 md:px-10 lg:px-16">
-            <div className="mx-auto max-w-2xl">
-              {/* Hero */}
-              <div className="mb-12">
+          <main className="min-w-0 flex-1 px-5 py-10 md:px-10 lg:px-14">
+            <div className="mx-auto max-w-[680px]">
+              {/* ── Hero ── */}
+              <div className="mb-14 pb-8 border-b border-border/40">
+                <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground mb-4">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                  v1.2.0
+                </div>
                 <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                  Brain Cloud Docs
+                  Brain Cloud Documentation
                 </h1>
-                <p className="mt-3 text-lg leading-relaxed text-muted-foreground">
-                  Give your AI a memory. Set up in 2 minutes, then just work
-                  normally.
+                <p className="mt-4 text-lg leading-relaxed text-muted-foreground max-w-lg">
+                  Give your AI persistent memory. Set up in 2 minutes, then just
+                  work normally — Claude handles the rest.
                 </p>
               </div>
 
-              {/* Sections grouped by category */}
+              {/* ── Sections ── */}
               {docs.map((category) => (
-                <div key={category.title} className="mb-16">
+                <div key={category.title} className="mb-20">
                   {/* Category header */}
-                  <div className="mb-8 flex items-center gap-2.5">
-                    <span className="text-lg">
-                      {CATEGORY_ICON[category.title] ?? "📄"}
-                    </span>
-                    <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                      {category.title}
-                    </h2>
-                    <div className="h-px flex-1 bg-border/50" />
+                  <div className="mb-10">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-2xl">{CATEGORY_META[category.title]?.icon ?? "📄"}</span>
+                      <h2 className="text-xl font-bold tracking-tight">
+                        {category.title}
+                      </h2>
+                    </div>
+                    <p className="text-sm text-muted-foreground ml-[2.375rem]">
+                      {CATEGORY_META[category.title]?.description}
+                    </p>
+                    <div className="mt-4 h-px bg-gradient-to-r from-border/60 to-transparent" />
                   </div>
 
                   {category.sections.map((section, i) => (
@@ -297,13 +301,31 @@ export function DocsPage() {
                       key={section.id}
                       id={section.id}
                       ref={registerRef}
-                      className={cn(
-                        "scroll-mt-24",
-                        i < category.sections.length - 1 &&
-                          "mb-12 pb-12 border-b border-border/30"
-                      )}
+                      className="scroll-mt-24 mb-6"
                     >
-                      <Markdown content={section.content} size="base" />
+                      {/* Section card */}
+                      <div
+                        className={cn(
+                          "rounded-xl border border-border/40 bg-card/50 p-6 md:p-8",
+                          isToolsRef(section.id) && "docs-tools-ref"
+                        )}
+                      >
+                        {/* Section title */}
+                        <div className="flex items-center gap-3 mb-6">
+                          <h3 className="text-lg font-semibold tracking-tight">
+                            {section.title}
+                          </h3>
+                          {isToolsRef(section.id) && (
+                            <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                              Reference
+                            </span>
+                          )}
+                        </div>
+                        <Markdown content={section.content} size="base" />
+                      </div>
+
+                      {/* Spacer between cards */}
+                      {i < category.sections.length - 1 && <div className="h-6" />}
                     </section>
                   ))}
                 </div>
@@ -312,12 +334,12 @@ export function DocsPage() {
           </main>
         </div>
 
-        {/* ── Back to top FAB ── */}
+        {/* ── Back to top ── */}
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           aria-label="Back to top"
           className={cn(
-            "fixed bottom-6 right-6 z-20 flex h-10 w-10 items-center justify-center rounded-full border bg-background shadow-md transition-all hover:bg-muted",
+            "fixed bottom-6 right-6 z-20 flex h-10 w-10 items-center justify-center rounded-full border bg-background shadow-lg transition-all hover:bg-muted",
             showBackToTop
               ? "translate-y-0 opacity-100"
               : "translate-y-4 opacity-0 pointer-events-none"
