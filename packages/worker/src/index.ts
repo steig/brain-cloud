@@ -83,6 +83,7 @@ app.get('*', (c) => {
 export default {
   fetch: app.fetch,
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    // Vectorize backfill can be triggered via POST /api/backfill/vectorize (admin only)
     ctx.waitUntil(
       handleRetention(env.DB).then((result) => {
         console.log('[scheduled] Retention complete:', result)
