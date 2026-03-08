@@ -171,7 +171,7 @@ export async function listThoughts(
     withJoins?: boolean
   } = {}
 ): Promise<ThoughtRow[]> {
-  const conditions: string[] = ['t.user_id = ?']
+  const conditions: string[] = ['t.user_id = ?', 't.deleted_at IS NULL']
   const binds: unknown[] = [userId]
 
   if (opts.type) {
@@ -205,8 +205,10 @@ export async function listThoughts(
     binds.push(opts.createdBefore)
   }
 
-  const orderCol = opts.orderBy || 'created_at'
-  const orderDir = opts.orderDir || 'desc'
+  // Allowlist to prevent SQL injection via user-controlled orderBy
+  const VALID_ORDER_COLS = new Set(['created_at', 'id', 'type', 'content', 'visibility'])
+  const orderCol = VALID_ORDER_COLS.has(opts.orderBy || '') ? opts.orderBy! : 'created_at'
+  const orderDir = opts.orderDir === 'asc' ? 'asc' : 'desc'
   const limit = opts.limit || 50
 
   let query: string
@@ -231,7 +233,7 @@ export async function listThoughts(
 
   const stmt = db.prepare(query)
   const { results } = await stmt.bind(...binds).all()
-  return results as ThoughtRow[]
+  return results as unknown as ThoughtRow[]
 }
 
 export async function updateThought(
@@ -255,13 +257,15 @@ export async function updateThought(
 }
 
 export async function deleteThought(db: D1Database, userId: string, id: string): Promise<void> {
-  await db.prepare('DELETE FROM thoughts WHERE id = ? AND user_id = ?').bind(id, userId).run()
+  await db.prepare(
+    "UPDATE thoughts SET deleted_at = datetime('now') WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
+  ).bind(id, userId).run()
 }
 
 export async function countThoughts(
   db: D1Database, userId: string, filter?: { createdAfter?: string; type?: string }
 ): Promise<number> {
-  const conditions: string[] = ['user_id = ?']
+  const conditions: string[] = ['user_id = ?', 'deleted_at IS NULL']
   const binds: unknown[] = [userId]
 
   if (filter?.createdAfter) {
@@ -355,7 +359,7 @@ export async function listDecisions(
     withJoins?: boolean
   } = {}
 ): Promise<DecisionRow[]> {
-  const conditions: string[] = ['d.user_id = ?']
+  const conditions: string[] = ['d.user_id = ?', 'd.deleted_at IS NULL']
   const binds: unknown[] = [userId]
 
   if (opts.projectId) {
@@ -396,7 +400,7 @@ export async function listDecisions(
   binds.push(limit)
 
   const { results } = await db.prepare(query).bind(...binds).all()
-  return results as DecisionRow[]
+  return results as unknown as DecisionRow[]
 }
 
 export async function updateDecision(
@@ -416,13 +420,15 @@ export async function updateDecision(
 }
 
 export async function deleteDecision(db: D1Database, userId: string, id: string): Promise<void> {
-  await db.prepare('DELETE FROM decisions WHERE id = ? AND user_id = ?').bind(id, userId).run()
+  await db.prepare(
+    "UPDATE decisions SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
+  ).bind(id, userId).run()
 }
 
 export async function countDecisions(
   db: D1Database, userId: string, filter?: { createdAfter?: string }
 ): Promise<number> {
-  const conditions: string[] = ['user_id = ?']
+  const conditions: string[] = ['user_id = ?', 'deleted_at IS NULL']
   const binds: unknown[] = [userId]
   if (filter?.createdAfter) {
     conditions.push('created_at >= ?')
@@ -551,7 +557,7 @@ export async function listSessions(
                  ORDER BY s.started_at DESC LIMIT ?`
 
   const { results } = await db.prepare(query).bind(...binds).all()
-  return results as SessionRow[]
+  return results as unknown as SessionRow[]
 }
 
 export async function getSession(
@@ -780,10 +786,10 @@ export async function searchBrain(
 
   const { results } = await db.prepare(
     `SELECT id, 'thought' as type, content, created_at FROM thoughts
-     WHERE user_id = ? AND content LIKE ?
+     WHERE user_id = ? AND deleted_at IS NULL AND content LIKE ?
      UNION ALL
      SELECT id, 'decision' as type, title as content, created_at FROM decisions
-     WHERE user_id = ? AND (title LIKE ? OR context LIKE ? OR rationale LIKE ?)
+     WHERE user_id = ? AND deleted_at IS NULL AND (title LIKE ? OR context LIKE ? OR rationale LIKE ?)
      ORDER BY created_at DESC LIMIT ?`
   ).bind(userId, likeQuery, userId, likeQuery, likeQuery, likeQuery, limit).all()
 
@@ -801,11 +807,11 @@ export async function getTimeline(
   const { results } = await db.prepare(
     `SELECT t.id, 'thought' as type, t.content, p.name as project_name, t.created_at
      FROM thoughts t LEFT JOIN projects p ON t.project_id = p.id
-     WHERE t.user_id = ? AND t.created_at BETWEEN ? AND ?
+     WHERE t.user_id = ? AND t.deleted_at IS NULL AND t.created_at BETWEEN ? AND ?
      UNION ALL
      SELECT d.id, 'decision' as type, d.title as content, p.name as project_name, d.created_at
      FROM decisions d LEFT JOIN projects p ON d.project_id = p.id
-     WHERE d.user_id = ? AND d.created_at BETWEEN ? AND ?
+     WHERE d.user_id = ? AND d.deleted_at IS NULL AND d.created_at BETWEEN ? AND ?
      UNION ALL
      SELECT s.id, 'session' as type, COALESCE(s.summary, 'Session') as content, p.name as project_name, s.started_at as created_at
      FROM sessions s LEFT JOIN projects p ON s.project_id = p.id
@@ -842,12 +848,12 @@ export async function getBrainSummary(
   ] = await Promise.all([
     // Total thoughts
     db.prepare(
-      `SELECT COUNT(*) as cnt FROM thoughts WHERE user_id = ? AND created_at BETWEEN ? AND ? ${projectFilter}`
+      `SELECT COUNT(*) as cnt FROM thoughts WHERE user_id = ? AND deleted_at IS NULL AND created_at BETWEEN ? AND ? ${projectFilter}`
     ).bind(userId, fromDate, toDate, ...projectBind).first<{ cnt: number }>(),
 
     // Total decisions
     db.prepare(
-      `SELECT COUNT(*) as cnt FROM decisions WHERE user_id = ? AND created_at BETWEEN ? AND ? ${projectFilter}`
+      `SELECT COUNT(*) as cnt FROM decisions WHERE user_id = ? AND deleted_at IS NULL AND created_at BETWEEN ? AND ? ${projectFilter}`
     ).bind(userId, fromDate, toDate, ...projectBind).first<{ cnt: number }>(),
 
     // Session stats
@@ -859,13 +865,13 @@ export async function getBrainSummary(
 
     // Thoughts by type
     db.prepare(
-      `SELECT type, COUNT(*) as cnt FROM thoughts WHERE user_id = ? AND created_at BETWEEN ? AND ? ${projectFilter} GROUP BY type`
+      `SELECT type, COUNT(*) as cnt FROM thoughts WHERE user_id = ? AND deleted_at IS NULL AND created_at BETWEEN ? AND ? ${projectFilter} GROUP BY type`
     ).bind(userId, fromDate, toDate, ...projectBind).all(),
 
     // Tag counts (via json_each)
     db.prepare(
       `SELECT je.value as tag, COUNT(*) as cnt FROM thoughts, json_each(tags) je
-       WHERE user_id = ? AND created_at BETWEEN ? AND ? ${projectFilter}
+       WHERE user_id = ? AND deleted_at IS NULL AND created_at BETWEEN ? AND ? ${projectFilter}
        AND je.value NOT IN ('task-start','task-complete','task-blocked','git','commit')
        GROUP BY je.value ORDER BY cnt DESC LIMIT 10`
     ).bind(userId, fromDate, toDate, ...projectBind).all(),
@@ -873,14 +879,14 @@ export async function getBrainSummary(
     // Recent decisions
     db.prepare(
       `SELECT title, chosen, rationale, created_at, tags FROM decisions
-       WHERE user_id = ? AND created_at BETWEEN ? AND ? ${projectFilter}
+       WHERE user_id = ? AND deleted_at IS NULL AND created_at BETWEEN ? AND ? ${projectFilter}
        ORDER BY created_at DESC LIMIT 5`
     ).bind(userId, fromDate, toDate, ...projectBind).all(),
 
     // Insights
     db.prepare(
       `SELECT content, created_at, tags FROM thoughts
-       WHERE user_id = ? AND type = 'insight' AND created_at BETWEEN ? AND ? ${projectFilter}
+       WHERE user_id = ? AND deleted_at IS NULL AND type = 'insight' AND created_at BETWEEN ? AND ? ${projectFilter}
        ORDER BY created_at DESC LIMIT 5`
     ).bind(userId, fromDate, toDate, ...projectBind).all(),
 
@@ -903,9 +909,9 @@ export async function getBrainSummary(
     // Active days
     db.prepare(
       `SELECT COUNT(DISTINCT date(created_at)) as cnt FROM (
-         SELECT created_at FROM thoughts WHERE user_id = ? AND created_at BETWEEN ? AND ? ${projectFilter}
+         SELECT created_at FROM thoughts WHERE user_id = ? AND deleted_at IS NULL AND created_at BETWEEN ? AND ? ${projectFilter}
          UNION
-         SELECT created_at FROM decisions WHERE user_id = ? AND created_at BETWEEN ? AND ? ${projectFilter}
+         SELECT created_at FROM decisions WHERE user_id = ? AND deleted_at IS NULL AND created_at BETWEEN ? AND ? ${projectFilter}
        )`
     ).bind(userId, fromDate, toDate, ...projectBind, userId, fromDate, toDate, ...projectBind).first<{ cnt: number }>(),
   ])
@@ -1024,13 +1030,13 @@ export async function getCoachingDailyData(
        COUNT(CASE WHEN type = 'insight' THEN 1 END) as insights,
        COUNT(CASE WHEN type = 'todo' THEN 1 END) as todos,
        COUNT(CASE WHEN type = 'idea' THEN 1 END) as ideas
-       FROM thoughts WHERE user_id = ? AND created_at >= ?`
+       FROM thoughts WHERE user_id = ? AND deleted_at IS NULL AND created_at >= ?`
     ).bind(userId, fromDate).first(),
 
     db.prepare(
       `SELECT COUNT(*) as total,
        COUNT(CASE WHEN outcome IS NOT NULL THEN 1 END) as with_outcome
-       FROM decisions WHERE user_id = ? AND created_at >= ?`
+       FROM decisions WHERE user_id = ? AND deleted_at IS NULL AND created_at >= ?`
     ).bind(userId, fromDate).first(),
 
     db.prepare(
@@ -1078,30 +1084,33 @@ export interface ApiKeyRow {
   user_id: string
   name: string
   key_prefix: string
+  scope: string
+  expires_at: string | null
   created_at: string
   last_used_at: string | null
   is_active: number
 }
 
 export async function createApiKey(
-  db: D1Database, userId: string, name: string, keyHash: string, keyPrefix: string
+  db: D1Database, userId: string, name: string, keyHash: string, keyPrefix: string,
+  scope: string = 'write', expiresAt?: string
 ): Promise<ApiKeyRow> {
   const id = crypto.randomUUID()
   await db.prepare(
-    `INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, created_at, is_active)
-     VALUES (?, ?, ?, ?, ?, datetime('now'), 1)`
-  ).bind(id, userId, name, keyHash, keyPrefix).run()
+    `INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, scope, expires_at, created_at, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), 1)`
+  ).bind(id, userId, name, keyHash, keyPrefix, scope, expiresAt ?? null).run()
 
-  return (await db.prepare('SELECT id, user_id, name, key_prefix, created_at, last_used_at, is_active FROM api_keys WHERE id = ?').bind(id).first())! as ApiKeyRow
+  return (await db.prepare('SELECT id, user_id, name, key_prefix, scope, expires_at, created_at, last_used_at, is_active FROM api_keys WHERE id = ?').bind(id).first())! as ApiKeyRow
 }
 
 export async function listApiKeys(
   db: D1Database, userId: string
 ): Promise<ApiKeyRow[]> {
   const { results } = await db.prepare(
-    'SELECT id, user_id, name, key_prefix, created_at, last_used_at, is_active FROM api_keys WHERE user_id = ? ORDER BY created_at DESC'
+    'SELECT id, user_id, name, key_prefix, scope, expires_at, created_at, last_used_at, is_active FROM api_keys WHERE user_id = ? ORDER BY created_at DESC'
   ).bind(userId).all()
-  return results as ApiKeyRow[]
+  return results as unknown as ApiKeyRow[]
 }
 
 export async function revokeApiKey(
@@ -1114,23 +1123,153 @@ export async function revokeApiKey(
 
 export async function findUserByKeyHash(
   db: D1Database, keyHash: string
-): Promise<{ id: string; name: string; email: string | null; avatar_url: string | null; system_role: string } | null> {
+): Promise<{ id: string; name: string; email: string | null; avatar_url: string | null; system_role: string; key_scope: string } | null> {
   const row = await db.prepare(
-    `SELECT u.id, u.name, u.email, u.avatar_url, u.system_role, ak.id as key_id
+    `SELECT u.id, u.name, u.email, u.avatar_url, u.system_role, ak.id as key_id, ak.scope, ak.expires_at
      FROM api_keys ak JOIN users u ON ak.user_id = u.id
      WHERE ak.key_hash = ? AND ak.is_active = 1 AND u.is_active = 1`
-  ).bind(keyHash).first<{ id: string; name: string; email: string | null; avatar_url: string | null; system_role: string; key_id: string }>()
+  ).bind(keyHash).first<{ id: string; name: string; email: string | null; avatar_url: string | null; system_role: string; key_id: string; scope: string; expires_at: string | null }>()
 
   if (!row) return null
+
+  // Reject expired keys
+  if (row.expires_at && new Date(row.expires_at) < new Date()) return null
 
   // Update last_used_at (fire-and-forget)
   db.prepare('UPDATE api_keys SET last_used_at = datetime(\'now\') WHERE id = ?').bind(row.key_id).run()
 
-  return { id: row.id, name: row.name, email: row.email, avatar_url: row.avatar_url, system_role: row.system_role }
+  return { id: row.id, name: row.name, email: row.email, avatar_url: row.avatar_url, system_role: row.system_role, key_scope: row.scope }
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // Utility exports
 // ═══════════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════════
+// Handoffs
+// ═══════════════════════════════════════════════════════════════════
+
+export interface HandoffRow {
+  id: string
+  user_id: string
+  from_project: string | null
+  to_project: string
+  handoff_type: string
+  priority: string
+  message: string
+  metadata: string | null
+  status: string
+  claimed_at: string | null
+  claim_note: string | null
+  created_at: string
+}
+
+export interface HandoffInput {
+  from_project?: string
+  to_project: string
+  handoff_type?: string
+  priority?: string
+  message: string
+  metadata?: Record<string, unknown>
+}
+
+const VALID_HANDOFF_TYPES = new Set(['context', 'decision', 'blocker', 'task'])
+const VALID_PRIORITIES = new Set(['low', 'medium', 'high', 'urgent'])
+
+export async function createHandoff(
+  db: D1Database, userId: string, input: HandoffInput
+): Promise<HandoffRow> {
+  const id = crypto.randomUUID()
+  const handoffType = VALID_HANDOFF_TYPES.has(input.handoff_type || '') ? input.handoff_type! : 'context'
+  const priority = VALID_PRIORITIES.has(input.priority || '') ? input.priority! : 'medium'
+
+  await db.prepare(
+    `INSERT INTO handoffs (id, user_id, from_project, to_project, handoff_type, priority, message, metadata, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', datetime('now'))`
+  ).bind(
+    id, userId,
+    input.from_project ?? null,
+    input.to_project,
+    handoffType,
+    priority,
+    input.message,
+    toJson(input.metadata || {})
+  ).run()
+
+  return (await db.prepare('SELECT * FROM handoffs WHERE id = ?').bind(id).first())! as HandoffRow
+}
+
+export async function listHandoffs(
+  db: D1Database, userId: string,
+  opts: { toProject?: string; status?: string; limit?: number } = {}
+): Promise<HandoffRow[]> {
+  const conditions: string[] = ['user_id = ?']
+  const binds: unknown[] = [userId]
+
+  if (opts.toProject) {
+    conditions.push('to_project = ?')
+    binds.push(opts.toProject)
+  }
+  if (opts.status) {
+    conditions.push('status = ?')
+    binds.push(opts.status)
+  }
+
+  binds.push(opts.limit || 50)
+
+  const { results } = await db.prepare(
+    `SELECT * FROM handoffs WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT ?`
+  ).bind(...binds).all()
+  return results as unknown as HandoffRow[]
+}
+
+export async function claimHandoff(
+  db: D1Database, userId: string, id: string, note?: string
+): Promise<boolean> {
+  const result = await db.prepare(
+    `UPDATE handoffs SET status = 'claimed', claimed_at = datetime('now'), claim_note = ?
+     WHERE id = ? AND user_id = ? AND status = 'pending'`
+  ).bind(note ?? null, id, userId).run()
+  return (result.meta?.changes ?? 0) > 0
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Account Deletion (GDPR right-to-erasure)
+// ═══════════════════════════════════════════════════════════════════
+
+export async function deleteUserAccount(db: D1Database, userId: string): Promise<void> {
+  // Delete child tables first (order matters for referential integrity)
+  const tables = [
+    'dx_events',
+    'dx_costs',
+    'dx_feedback',
+    'dx_patterns',
+    'conversations',
+    'prompt_metrics',
+    'sentiment',
+    'decision_reviews',
+    'session_scores',
+    'event_triggers',
+    'handoffs',
+    'thoughts',
+    'decisions',
+    'sessions',
+    'api_keys',
+    'oauth_accounts',
+    'auth_sessions',
+    'team_members',
+    'project_members',
+  ]
+
+  for (const table of tables) {
+    await db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).bind(userId).run()
+  }
+
+  // Clean up machines (user_id FK)
+  await db.prepare('DELETE FROM machines WHERE user_id = ?').bind(userId).run()
+
+  // Finally delete the user row
+  await db.prepare('DELETE FROM users WHERE id = ?').bind(userId).run()
+}
 
 export { parseTags, parseJson, toJson }

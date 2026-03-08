@@ -924,70 +924,53 @@ async function handleToolCall(
       return { success: true, message: `Coaching created for ${dateTag}`, coaching_id: created.id, stats }
     }
 
-    // ── Handoffs ──
+    // ── Handoffs (dedicated table) ──
     case 'brain_handoff': {
-      const toProject = args.to_project as string
-      const message = args.message as string
-      const handoffType = (args.handoff_type as string) || 'context'
-      const priority = (args.priority as string) || 'medium'
       const metadata = (args.metadata as Record<string, unknown>) || {}
-      const handoffId = Date.now().toString(36) + Math.random().toString(36).substr(2, 4)
-
-      const content = `HANDOFF [${handoffId}] to ${toProject}\n\n${message}\n\n---\nType: ${handoffType}\nPriority: ${priority}`
-      const tags = ['handoff', `handoff-to:${toProject}`, `handoff-id:${handoffId}`, `handoff-type:${handoffType}`, `handoff-priority:${priority}`, 'pending']
-
-      const thought = await q.createThought(db, userId, {
-        type: 'todo', content, tags,
-        context: { handoff_id: handoffId, to_project: toProject, handoff_type: handoffType, priority, ...metadata },
+      const handoff = await q.createHandoff(db, userId, {
+        to_project: args.to_project as string,
+        message: args.message as string,
+        handoff_type: (args.handoff_type as string) || 'context',
+        priority: (args.priority as string) || 'medium',
+        from_project: (metadata.from_project as string) || undefined,
+        metadata,
       })
-      return { success: true, handoff_id: handoffId, to_project: toProject, thought }
+      return { success: true, handoff_id: handoff.id, to_project: handoff.to_project, from_project: handoff.from_project }
     }
 
     case 'brain_handoffs': {
       const targetProject = args.project as string | undefined
       const includeClaimed = (args.include_claimed as boolean) || false
 
-      const tagsContain = ['handoff']
-      if (targetProject) tagsContain.push(`handoff-to:${targetProject}`)
-      if (!includeClaimed) tagsContain.push('pending')
-
-      const handoffs = await q.listThoughts(db, userId, { type: 'todo', tagsContain, limit: 50, withJoins: false })
-
-      const parsed = handoffs.map(h => {
-        const ctx = q.parseJson<Record<string, unknown>>(h.context) || {}
-        const tags = q.parseTags(h.tags)
-        return {
-          id: h.id,
-          handoff_id: ctx.handoff_id || tags.find(t => t.startsWith('handoff-id:'))?.split(':')[1],
-          to_project: ctx.to_project || tags.find(t => t.startsWith('handoff-to:'))?.split(':')[1],
-          type: ctx.handoff_type || tags.find(t => t.startsWith('handoff-type:'))?.split(':')[1],
-          priority: ctx.priority || tags.find(t => t.startsWith('handoff-priority:'))?.split(':')[1],
-          message: h.content,
-          claimed: !tags.includes('pending'),
-          created_at: h.created_at,
-        }
+      const handoffs = await q.listHandoffs(db, userId, {
+        toProject: targetProject,
+        status: includeClaimed ? undefined : 'pending',
+        limit: 50,
       })
-      return { success: true, count: parsed.length, handoffs: parsed }
+
+      return {
+        success: true,
+        count: handoffs.length,
+        handoffs: handoffs.map(h => ({
+          id: h.id,
+          handoff_id: h.id,
+          to_project: h.to_project,
+          from_project: h.from_project,
+          type: h.handoff_type,
+          priority: h.priority,
+          message: h.message,
+          claimed: h.status !== 'pending',
+          created_at: h.created_at,
+        })),
+      }
     }
 
     case 'brain_handoff_claim': {
       const handoffId = args.handoff_id as string
       const note = args.note as string | undefined
 
-      const handoffs = await q.listThoughts(db, userId, {
-        type: 'todo', tagsContain: ['handoff', `handoff-id:${handoffId}`], limit: 1, withJoins: false,
-      })
-      if (!handoffs.length) return { success: false, error: `Handoff not found: ${handoffId}` }
-
-      const handoff = handoffs[0]
-      const existingTags = q.parseTags(handoff.tags)
-      const newTags = existingTags.filter(t => t !== 'pending').concat(['claimed', `claimed-at:${new Date().toISOString().split('T')[0]}`])
-      const existingCtx = q.parseJson<Record<string, unknown>>(handoff.context) || {}
-
-      await q.updateThought(db, userId, handoff.id, {
-        tags: newTags,
-        context: { ...existingCtx, claimed_at: new Date().toISOString(), claim_note: note },
-      })
+      const claimed = await q.claimHandoff(db, userId, handoffId, note)
+      if (!claimed) return { success: false, error: `Handoff not found or already claimed: ${handoffId}` }
       return { success: true, message: `Handoff ${handoffId} claimed`, handoff_id: handoffId }
     }
 
@@ -1216,7 +1199,8 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
   let user = await q.findUserByKeyHash(c.env.DB, keyHash)
   if (!user) {
     // Legacy plaintext fallback
-    user = await q.findUserByApiKey(c.env.DB, apiKey)
+    const legacyUser = await q.findUserByApiKey(c.env.DB, apiKey)
+    if (legacyUser) user = { ...legacyUser, key_scope: 'write' }
   }
   if (!user) {
     return c.json(

@@ -28,6 +28,15 @@ const ACCESS_TOKEN_COOKIE = 'brain_access'
 const REFRESH_TOKEN_COOKIE = 'brain_refresh'
 const STATE_COOKIE = 'oauth_state'
 
+// Derive callback URL from request URL origin, validated against allowlist
+function getCallbackUrl(c: AuthContext, provider: 'github' | 'google'): string {
+  const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'
+  const allowed = new Set([frontendUrl, 'https://dash.brain-ai.dev'])
+  const origin = new URL(c.req.url).origin
+  const safeOrigin = allowed.has(origin) ? origin : frontendUrl
+  return `${safeOrigin}/auth/${provider}/callback`
+}
+
 // Derive cookie domain from FRONTEND_URL
 function getCookieDomain(_frontendUrl: string): string | undefined {
   // Don't set Domain attribute — let the browser default to exact origin match.
@@ -160,9 +169,12 @@ async function handleOAuthCallback(
     c.req.header('User-Agent') ?? null, c.req.header('CF-Connecting-IP') ?? null,
   ).run()
 
-  // Set cookies and redirect
+  // Set cookies and redirect back to the origin that initiated login
   setAuthCookies(c, accessToken, refreshToken)
-  return c.redirect(c.env.FRONTEND_URL)
+  const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'
+  const allowed = new Set([frontendUrl, 'https://dash.brain-ai.dev'])
+  const origin = new URL(c.req.url).origin
+  return c.redirect(allowed.has(origin) ? origin : frontendUrl)
 }
 
 // ─── GitHub OAuth ─────────────────────────────────────────────────────
@@ -184,7 +196,8 @@ auth.get('/github', (c) => {
     path: '/',
   })
 
-  return c.redirect(getGitHubAuthUrl(c.env.GITHUB_CLIENT_ID, c.env.GITHUB_CALLBACK_URL, state))
+  const callbackUrl = getCallbackUrl(c, 'github')
+  return c.redirect(getGitHubAuthUrl(c.env.GITHUB_CLIENT_ID, callbackUrl, state))
 })
 
 auth.get('/github/callback', async (c) => {
@@ -214,7 +227,7 @@ auth.get('/github/callback', async (c) => {
     }
 
     const { accessToken: githubToken } = await exchangeGitHubCode(
-      code, c.env.GITHUB_CLIENT_ID, c.env.GITHUB_CLIENT_SECRET, c.env.GITHUB_CALLBACK_URL,
+      code, c.env.GITHUB_CLIENT_ID, c.env.GITHUB_CLIENT_SECRET, getCallbackUrl(c, 'github'),
     )
     const githubUser = await getGitHubUser(githubToken)
 
@@ -248,7 +261,8 @@ auth.get('/google', (c) => {
     path: '/',
   })
 
-  return c.redirect(getGoogleAuthUrl(c.env.GOOGLE_CLIENT_ID, c.env.GOOGLE_CALLBACK_URL!, state))
+  const callbackUrl = getCallbackUrl(c, 'google')
+  return c.redirect(getGoogleAuthUrl(c.env.GOOGLE_CLIENT_ID, callbackUrl, state))
 })
 
 auth.get('/google/callback', async (c) => {
@@ -275,7 +289,7 @@ auth.get('/google/callback', async (c) => {
     }
 
     const { accessToken: googleToken, refreshToken: googleRefresh, expiresIn } =
-      await exchangeGoogleCode(code, c.env.GOOGLE_CLIENT_ID!, c.env.GOOGLE_CLIENT_SECRET!, c.env.GOOGLE_CALLBACK_URL!)
+      await exchangeGoogleCode(code, c.env.GOOGLE_CLIENT_ID!, c.env.GOOGLE_CLIENT_SECRET!, getCallbackUrl(c, 'google'))
     const googleUser = await getGoogleUser(googleToken)
 
     return handleOAuthCallback(
@@ -467,9 +481,23 @@ auth.post('/api-keys', async (c) => {
     const payload = await verifyAccessToken(accessToken, c.env.JWT_SECRET, c.env.JWT_ISSUER)
     if (!payload) return c.json({ error: 'Invalid token' }, 401)
 
-    const body = await c.req.json<{ name?: string }>()
+    const body = await c.req.json<{ name?: string; scope?: string; expires_at?: string }>()
     const name = body.name?.trim()
     if (!name) return c.json({ error: 'Name is required' }, 400)
+
+    const scope = body.scope ?? 'write'
+    if (!['read', 'write', 'admin'].includes(scope)) {
+      return c.json({ error: 'Invalid scope. Must be: read, write, or admin' }, 400)
+    }
+
+    // Validate expires_at if provided
+    let expiresAt: string | undefined
+    if (body.expires_at) {
+      const d = new Date(body.expires_at)
+      if (isNaN(d.getTime())) return c.json({ error: 'Invalid expires_at date' }, 400)
+      if (d <= new Date()) return c.json({ error: 'expires_at must be in the future' }, 400)
+      expiresAt = d.toISOString()
+    }
 
     // Generate key
     const bytes = new Uint8Array(32)
@@ -478,7 +506,7 @@ auth.post('/api-keys', async (c) => {
     const keyHash = await hashToken(rawKey)
     const keyPrefix = rawKey.slice(0, 12) + '...'
 
-    const apiKey = await createApiKey(c.env.DB, payload.sub, name, keyHash, keyPrefix)
+    const apiKey = await createApiKey(c.env.DB, payload.sub, name, keyHash, keyPrefix, scope, expiresAt)
     return c.json({ ...apiKey, key: rawKey })
   } catch (error: any) {
     if (error?.message?.includes('UNIQUE constraint failed')) {

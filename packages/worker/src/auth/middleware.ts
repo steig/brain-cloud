@@ -12,7 +12,7 @@ export const authMiddleware = createMiddleware<{
   Bindings: Env
   Variables: Variables
 }>(async (c, next) => {
-  // 1. Try cookie JWT auth
+  // 1. Try cookie JWT auth (no scope restrictions — full access)
   const cookie = getCookie(c, ACCESS_TOKEN_COOKIE)
   if (cookie) {
     const payload = await verifyAccessToken(cookie, c.env.JWT_SECRET, c.env.JWT_ISSUER)
@@ -35,18 +35,23 @@ export const authMiddleware = createMiddleware<{
     const keyHash = await hashToken(apiKey)
     let user = await findUserByKeyHash(c.env.DB, keyHash)
 
-    // Fallback to legacy plaintext match
+    // Fallback to legacy plaintext match (no scope — treated as 'write')
     if (!user) {
-      user = await findUserByApiKey(c.env.DB, apiKey)
+      const legacyUser = await findUserByApiKey(c.env.DB, apiKey)
+      if (legacyUser) {
+        user = { ...legacyUser, key_scope: 'write' }
+      }
     }
 
     if (user) {
+      const keyScope = user.key_scope as 'read' | 'write' | 'admin' | undefined
       c.set('user', {
         id: user.id,
         name: user.name,
         email: user.email ?? undefined,
         avatar: user.avatar_url ?? undefined,
         system_role: (user.system_role as 'user' | 'admin' | 'super_admin') || 'user',
+        key_scope: keyScope ?? 'write',
       })
       return next()
     }
@@ -54,4 +59,36 @@ export const authMiddleware = createMiddleware<{
 
   // 3. Neither auth method succeeded
   return c.json({ error: 'Unauthorized' }, 401)
+})
+
+// Scope enforcement middleware — use after authMiddleware
+// read: GET/HEAD only
+// write: GET/HEAD/POST/PATCH/DELETE on data routes, but NOT /auth/api-keys management
+// admin: everything
+export const scopeMiddleware = createMiddleware<{
+  Bindings: Env
+  Variables: Variables
+}>(async (c, next) => {
+  const user = c.get('user')
+
+  // Cookie-based auth has no scope restriction
+  if (!user.key_scope) return next()
+
+  const method = c.req.method.toUpperCase()
+  const scope = user.key_scope
+
+  if (scope === 'admin') return next()
+
+  if (scope === 'read') {
+    if (method !== 'GET' && method !== 'HEAD') {
+      return c.json({ error: 'API key scope "read" only allows GET requests' }, 403)
+    }
+    return next()
+  }
+
+  // scope === 'write'
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'POST' && method !== 'PATCH' && method !== 'DELETE') {
+    return c.json({ error: 'Method not allowed for this API key scope' }, 403)
+  }
+  return next()
 })
