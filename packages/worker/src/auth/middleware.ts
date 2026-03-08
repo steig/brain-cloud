@@ -44,6 +44,11 @@ export const authMiddleware = createMiddleware<{
     }
 
     if (user) {
+      // Check for expired key (returned with expired marker from findUserByKeyHash)
+      if ('expired' in user && user.expired) {
+        return c.json({ error: 'API key has expired' }, 401)
+      }
+
       const keyScope = user.key_scope as 'read' | 'write' | 'admin' | undefined
       c.set('user', {
         id: user.id,

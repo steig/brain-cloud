@@ -81,7 +81,7 @@ export function SetupWizard({ onDismiss }: SetupWizardProps) {
 
   const handleCreateKey = async () => {
     if (!keyName.trim()) return;
-    const result = await createKey.mutateAsync(keyName.trim());
+    const result = await createKey.mutateAsync({ name: keyName.trim() });
     setCreatedKey(result.key);
     setStep(2);
   };

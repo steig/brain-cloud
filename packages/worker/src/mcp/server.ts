@@ -1112,6 +1112,40 @@ async function handleToolCall(
 // JSON-RPC Protocol Handler
 // ═══════════════════════════════════════════════════════════════════
 
+// Tools that only read data — safe for read-scoped API keys
+const READ_ONLY_TOOLS = new Set([
+  'brain_search', 'brain_recall', 'brain_timeline', 'brain_summarize',
+  'brain_dx_summary', 'brain_handoffs', 'brain_coaching_insights',
+  'brain_decision_accuracy', 'brain_cost_per_outcome', 'brain_prompt_quality',
+  'brain_learning_curve', 'brain_score_session', 'brain_decision_templates',
+])
+
+// Scope-aware wrapper: checks tool permissions before dispatching
+async function handleJsonRpcWithScope(
+  req: JsonRpcRequest,
+  env: Env,
+  user: McpUser,
+  keyScope: 'read' | 'write' | 'admin'
+): Promise<JsonRpcResponse | null> {
+  // Admin can do everything; protocol methods (initialize, etc.) always allowed
+  if (keyScope === 'admin' || req.method !== 'tools/call') {
+    return handleJsonRpc(req, env, user)
+  }
+
+  const toolName = (req.params?.name as string) ?? ''
+
+  if (keyScope === 'read' && !READ_ONLY_TOOLS.has(toolName)) {
+    return {
+      jsonrpc: '2.0',
+      error: { code: -32000, message: `API key scope "read" does not allow tool "${toolName}"` },
+      id: req.id ?? null,
+    }
+  }
+
+  // write scope can use all tools
+  return handleJsonRpc(req, env, user)
+}
+
 async function handleJsonRpc(
   req: JsonRpcRequest,
   env: Env,
@@ -1209,19 +1243,29 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
     )
   }
 
+  // Check for expired key
+  if ('expired' in user && user.expired) {
+    return c.json(
+      { jsonrpc: '2.0', error: { code: -32000, message: 'API key has expired' }, id: null },
+      401
+    )
+  }
+
+  const keyScope = (user.key_scope || 'write') as 'read' | 'write' | 'admin'
+
   const body = await c.req.json()
 
   // Handle batch requests
   if (Array.isArray(body)) {
     const responses = await Promise.all(
-      body.map(req => handleJsonRpc(req as JsonRpcRequest, c.env, { id: user.id, name: user.name }))
+      body.map(req => handleJsonRpcWithScope(req as JsonRpcRequest, c.env, { id: user.id, name: user.name }, keyScope))
     )
     const filtered = responses.filter((r): r is JsonRpcResponse => r !== null)
     if (filtered.length === 0) return c.body(null, 204)
     return c.json(filtered)
   }
 
-  const response = await handleJsonRpc(body as JsonRpcRequest, c.env, { id: user.id, name: user.name })
+  const response = await handleJsonRpcWithScope(body as JsonRpcRequest, c.env, { id: user.id, name: user.name }, keyScope)
   if (response === null) return c.body(null, 204)
   return c.json(response)
 }

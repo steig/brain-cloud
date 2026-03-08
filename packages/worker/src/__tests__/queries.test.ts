@@ -347,7 +347,7 @@ describe('db/queries', () => {
       expect(user).toBeNull()
     })
 
-    it('findUserByKeyHash rejects expired keys', async () => {
+    it('findUserByKeyHash marks expired keys', async () => {
       const hash = 'hash-expired-' + Date.now()
       await q.createApiKey(
         env.DB, TEST_USER.id, 'exp-key-' + Date.now(), hash, 'bc_exp',
@@ -355,7 +355,8 @@ describe('db/queries', () => {
       )
       const user = await q.findUserByKeyHash(env.DB, hash)
       await flushDb()
-      expect(user).toBeNull()
+      expect(user).not.toBeNull()
+      expect(user!.expired).toBe(true)
     })
 
     it('revokeApiKey deactivates a key', async () => {
