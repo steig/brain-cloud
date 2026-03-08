@@ -14,9 +14,7 @@ import {
   Cloud,
   Zap,
   ChevronDown,
-  Check,
   ArrowRight,
-  Star,
   Menu,
   X,
 } from "lucide-react";
@@ -91,29 +89,6 @@ const STEPS = [
   },
 ];
 
-const TESTIMONIALS = [
-  {
-    name: "Alex Chen",
-    role: "Senior Engineer at Startup",
-    quote:
-      "I used to spend 20 minutes at the start of every session re-explaining context to Claude. Now it just remembers.",
-    avatar: "AC",
-  },
-  {
-    name: "Sarah Kim",
-    role: "Tech Lead",
-    quote:
-      "Decision tracking changed how our team operates. We can actually learn from past architectural choices instead of repeating mistakes.",
-    avatar: "SK",
-  },
-  {
-    name: "Marcus Johnson",
-    role: "Solo Founder",
-    quote:
-      "The coaching insights are surprisingly useful. It's like having a senior mentor who's watched every session.",
-    avatar: "MJ",
-  },
-];
 
 const FAQ_ITEMS = [
   {
@@ -150,55 +125,6 @@ const FAQ_ITEMS = [
   },
 ];
 
-const PRICING_TIERS = [
-  {
-    name: "Free",
-    price: "$0",
-    period: "forever",
-    description: "For individuals getting started",
-    features: [
-      "Unlimited thoughts & decisions",
-      "Session tracking",
-      "Search & recall",
-      "7-day analytics",
-      "JSON/CSV export",
-    ],
-    cta: "Get Started",
-    highlighted: false,
-  },
-  {
-    name: "Pro",
-    price: "$12",
-    period: "per month",
-    description: "For power users who live in Claude",
-    features: [
-      "Everything in Free",
-      "AI coaching insights",
-      "Decision reviews & accuracy",
-      "90-day analytics & trends",
-      "GitHub integration",
-      "Priority support",
-    ],
-    cta: "Start Free Trial",
-    highlighted: true,
-  },
-  {
-    name: "Team",
-    price: "$29",
-    period: "per user/month",
-    description: "For teams sharing knowledge",
-    features: [
-      "Everything in Pro",
-      "Team handoffs & sharing",
-      "Shared decision library",
-      "Team analytics dashboard",
-      "SSO & admin controls",
-      "Custom integrations",
-    ],
-    cta: "Contact Us",
-    highlighted: false,
-  },
-];
 
 function smoothScroll(e: React.MouseEvent<HTMLAnchorElement>, href: string) {
   if (href.startsWith("#")) {
@@ -395,48 +321,6 @@ function FeaturesSection() {
   );
 }
 
-function TestimonialsSection() {
-  return (
-    <section className="px-4 py-16 sm:px-6 md:py-24">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-12 text-center md:mb-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Loved by developers
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            See what developers are saying about Brain Cloud.
-          </p>
-        </div>
-        <div className="grid gap-6 md:grid-cols-3">
-          {TESTIMONIALS.map((t) => (
-            <div
-              key={t.name}
-              className="rounded-lg border border-border bg-card p-6"
-            >
-              <div className="mb-4 flex gap-1">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="h-4 w-4 fill-current text-yellow-500" />
-                ))}
-              </div>
-              <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
-                &ldquo;{t.quote}&rdquo;
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-xs font-medium">
-                  {t.avatar}
-                </div>
-                <div>
-                  <div className="text-sm font-medium">{t.name}</div>
-                  <div className="text-xs text-muted-foreground">{t.role}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
@@ -487,49 +371,19 @@ function FAQSection() {
 function PricingSection() {
   return (
     <section id="pricing" className="scroll-mt-16 px-4 py-16 sm:px-6 md:py-24">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-12 text-center md:mb-16">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Simple, transparent pricing
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Start free. Upgrade when you need more.
-          </p>
-        </div>
-        <div className="grid gap-6 md:grid-cols-3">
-          {PRICING_TIERS.map((tier) => (
-            <div
-              key={tier.name}
-              className={`rounded-lg border p-6 ${
-                tier.highlighted
-                  ? "border-primary bg-card shadow-md"
-                  : "border-border bg-card"
-              }`}
-            >
-              <h3 className="text-lg font-semibold">{tier.name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{tier.description}</p>
-              <div className="mt-4">
-                <span className="text-4xl font-bold">{tier.price}</span>
-                <span className="ml-1 text-sm text-muted-foreground">/{tier.period}</span>
-              </div>
-              <ul className="mt-6 space-y-3">
-                {tier.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-2 text-sm">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                asChild
-                variant={tier.highlighted ? "default" : "outline"}
-                className="mt-8 w-full"
-              >
-                <a href={`${APP_URL}login`}>{tier.cta}</a>
-              </Button>
-            </div>
-          ))}
-        </div>
+      <div className="mx-auto max-w-3xl text-center">
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          Pricing
+        </h2>
+        <p className="mt-4 text-lg text-muted-foreground">
+          Brain Cloud is free while in beta. Pricing plans coming soon.
+        </p>
+        <Button asChild size="lg" className="mt-8">
+          <a href={`${APP_URL}login`}>
+            Get Started Free
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </a>
+        </Button>
       </div>
     </section>
   );
@@ -590,7 +444,6 @@ export function LandingPage() {
       <ProblemSection />
       <HowItWorksSection />
       <FeaturesSection />
-      <TestimonialsSection />
       <PricingSection />
       <FAQSection />
       <Footer />
