@@ -423,6 +423,35 @@ export interface TeamDetail extends Team {
   members: TeamMember[];
 }
 
+export interface TeamStats {
+  members: number;
+  thoughts: number;
+  decisions: number;
+  sessions: number;
+  member_activity: Array<{
+    user_id: string;
+    name: string;
+    avatar_url: string | null;
+    role: string;
+    thoughts: number;
+    decisions: number;
+    sessions: number;
+    last_active: string;
+  }>;
+}
+
+export interface TeamFeedItem {
+  id: string;
+  type: "thought" | "decision" | "session";
+  content: string | null;
+  title: string | null;
+  thought_type: string | null;
+  tags?: string[];
+  created_at: string;
+  user_name: string;
+  user_avatar: string | null;
+}
+
 // Teams API
 export const teams = {
   list: () => api.get<Team[]>("/api/teams"),
@@ -440,6 +469,10 @@ export const teams = {
     api.post<TeamInvite>(`/api/teams/${teamId}/invites`, data),
   cancelInvite: (teamId: string, inviteId: string) =>
     api.delete<void>(`/api/teams/${teamId}/invites/${inviteId}`),
+  getStats: (teamId: string) =>
+    api.get<TeamStats>(`/api/teams/${teamId}/stats`),
+  getFeed: (teamId: string, limit = 50) =>
+    api.get<TeamFeedItem[]>(`/api/teams/${teamId}/feed?limit=${limit}`),
 };
 
 // GitHub types

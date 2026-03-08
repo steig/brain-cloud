@@ -33,6 +33,8 @@ import {
   type Team,
   type TeamDetail,
   type TeamInvite,
+  type TeamStats,
+  type TeamFeedItem,
   type Project,
   type CrossProjectInsights,
 } from "./api";
@@ -489,6 +491,22 @@ export function useCancelTeamInvite() {
     mutationFn: ({ teamId, inviteId }: { teamId: string; inviteId: string }) =>
       teamsApi.cancelInvite(teamId, inviteId),
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["team-invites", vars.teamId] }),
+  });
+}
+
+export function useTeamStats(teamId: string | null) {
+  return useQuery({
+    queryKey: ["team-stats", teamId],
+    queryFn: () => teamsApi.getStats(teamId!),
+    enabled: !!teamId,
+  });
+}
+
+export function useTeamFeed(teamId: string | null, limit = 50) {
+  return useQuery({
+    queryKey: ["team-feed", teamId, limit],
+    queryFn: () => teamsApi.getFeed(teamId!, limit),
+    enabled: !!teamId,
   });
 }
 

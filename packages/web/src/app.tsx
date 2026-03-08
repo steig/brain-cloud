@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthGuard } from "@/components/auth/auth-guard";
@@ -19,17 +20,21 @@ import { ReviewsPage } from "@/components/decisions/reviews-page";
 import { InsightsPage } from "@/components/insights/page";
 import { GitHubPage } from "@/components/github/page";
 import { TeamsPage } from "@/components/teams/page";
+import { TeamAdminPage } from "@/components/teams/admin-page";
+import { TeamWorkspacePage } from "@/components/teams/workspace-page";
 import { ProjectsPage } from "@/components/projects/page";
 import { AskPage } from "@/components/ask/page";
 import { AdminDashboardPage } from "@/components/admin/dashboard-page";
 import { AdminUsersPage } from "@/components/admin/users-page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
+import { ChangelogPage } from "@/components/changelog/page";
 import { LandingPage } from "@/components/marketing/landing-page";
 import { DemoProvider } from "@/lib/demo-context";
 import { DemoBanner } from "@/components/demo/demo-banner";
 import { DemoEntry } from "@/components/demo/demo-entry";
 import { isMarketingSite } from "@/lib/config";
+import { trackPageView } from "@/lib/analytics";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,6 +91,8 @@ function AppLayout() {
             <Route path="insights" element={<InsightsPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="teams" element={<TeamsPage />} />
+            <Route path="teams/:id/admin" element={<TeamAdminPage />} />
+            <Route path="teams/:id/workspace" element={<TeamWorkspacePage />} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="github" element={<GitHubPage />} />
             <Route path="admin" element={<AdminDashboardPage />} />
@@ -102,6 +109,14 @@ function AppLayout() {
   );
 }
 
+function PageViewTracker({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  useEffect(() => {
+    trackPageView(location.pathname);
+  }, [location.pathname]);
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <HelmetProvider>
@@ -113,11 +128,13 @@ export default function App() {
           <meta property="og:description" content="Your second brain for developer decisions. Capture thoughts, log decisions, and learn from your work." />
         </Helmet>
         <BrowserRouter>
+          <PageViewTracker>
           <DemoProvider>
             <Routes>
               <Route path="/login" element={<LoginPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/terms" element={<TermsOfServicePage />} />
+              <Route path="/changelog" element={<ChangelogPage />} />
               <Route path="/demo" element={<DemoEntry />} />
               {isMarketingSite && (
                 <Route path="/" element={<LandingPage />} />
@@ -127,6 +144,7 @@ export default function App() {
               </Route>
             </Routes>
           </DemoProvider>
+          </PageViewTracker>
         </BrowserRouter>
       </QueryClientProvider>
     </HelmetProvider>

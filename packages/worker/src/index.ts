@@ -13,6 +13,8 @@ import { requestId } from './middleware/request-id'
 import { errorHandler } from './middleware/error-handler'
 import { apiRateLimiter, aiRateLimiter, authRateLimiter } from './middleware/rate-limiter'
 import { handleRetention } from './retention'
+import { docsRoutes } from './api/docs'
+import { analyticsTrackRoutes } from './api/analytics-track'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -38,6 +40,12 @@ app.use('*', cors({
 // Auth routes (no auth middleware — these handle their own auth)
 app.use('/auth/*', authRateLimiter)
 app.route('/auth', authRoutes)
+
+// API docs (public, no auth)
+app.route('/docs', docsRoutes)
+
+// Analytics tracking (public, no auth — before auth middleware)
+app.route('/t', analyticsTrackRoutes)
 
 // API routes (require auth + scope enforcement)
 app.use('/api/*', authMiddleware)

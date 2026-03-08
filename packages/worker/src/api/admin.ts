@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
+import { analyticsAdminRoutes } from './analytics-track'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -149,5 +150,8 @@ app.patch('/users/:id', async (c) => {
 
   return c.body(null, 204)
 })
+
+// Pageview analytics (admin-only, inherits admin guard from above)
+app.route('/pageviews', analyticsAdminRoutes)
 
 export { app as adminRoutes }
