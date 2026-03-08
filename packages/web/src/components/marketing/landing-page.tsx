@@ -534,9 +534,18 @@ function Footer() {
             href="https://github.com/steig/brain-cloud"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             <Github className="h-4 w-4" />
+            <span>Repo</span>
+          </a>
+          <a
+            href="https://github.com/steig"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            @steig
           </a>
         </div>
       </div>
