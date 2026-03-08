@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { BrainCloudLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
-import { useState, type ReactNode } from "react";
+import { useState, useMemo, type ReactNode } from "react";
+import { useUser } from "@/lib/queries";
 
 interface NavItem {
   to: string;
@@ -124,6 +125,20 @@ function CollapsibleSection({
 }
 
 export function Sidebar() {
+  const { data: user } = useUser();
+  const isAdmin = user?.system_role === "admin" || user?.system_role === "super_admin";
+
+  const sections = useMemo(
+    () =>
+      navSections.map((section) => ({
+        ...section,
+        items: section.items.filter(
+          (item) => item.to !== "/admin" || isAdmin
+        ),
+      })),
+    [isAdmin]
+  );
+
   return (
     <aside className="hidden md:flex w-56 flex-col border-r bg-sidebar">
       <div className="flex h-14 items-center border-b px-4">
@@ -149,7 +164,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-        {navSections.map((section) => (
+        {sections.map((section) => (
           <CollapsibleSection key={section.title} title={section.title}>
             {section.items.map(({ to, icon: Icon, label, shortcut }) => (
               <NavLink

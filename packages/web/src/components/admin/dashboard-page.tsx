@@ -12,10 +12,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminStats } from "@/lib/queries";
-import { Users, Lightbulb, GitFork, Timer, Key } from "lucide-react";
+import { Users, Lightbulb, GitFork, Timer, Key, ShieldAlert } from "lucide-react";
+import { AdminNav } from "./admin-nav";
 
 export function AdminDashboardPage() {
-  const { data, isLoading } = useAdminStats();
+  const { data, isLoading, error } = useAdminStats();
 
   if (isLoading) {
     return (
@@ -32,7 +33,24 @@ export function AdminDashboardPage() {
     );
   }
 
-  if (!data) return null;
+  if (error || !data) {
+    const is403 = error && 'status' in error && (error as { status: number }).status === 403;
+    return (
+      <div className="flex flex-1 items-center justify-center py-20">
+        <div className="text-center">
+          <ShieldAlert className="mx-auto h-12 w-12 text-muted-foreground" />
+          <h1 className="mt-4 text-xl font-semibold">
+            {is403 ? "Admin Access Required" : "Failed to Load"}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground max-w-sm">
+            {is403
+              ? "Your account doesn't have admin privileges. If you were recently granted admin access, try logging out and back in."
+              : "Something went wrong loading the admin dashboard. Please try again."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const statCards = [
     { label: "Users", value: data.totals.users, icon: Users },
@@ -44,7 +62,8 @@ export function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">System Dashboard</h1>
+      <h1 className="text-2xl font-bold">Admin</h1>
+      <AdminNav />
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
