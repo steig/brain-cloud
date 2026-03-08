@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Copy, Key, Plus, Trash2, BookOpen } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Copy, Download, Key, Plus, Trash2, BookOpen } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SetupWizard } from "@/components/onboarding/setup-wizard";
 
@@ -22,6 +23,10 @@ export function SettingsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
+  const [exportType, setExportType] = useState("all");
+  const [exportFormat, setExportFormat] = useState("json");
+  const [exportRange, setExportRange] = useState("all");
+  const [exporting, setExporting] = useState(false);
 
   const handleCreate = async () => {
     if (!newKeyName.trim()) return;
@@ -39,6 +44,24 @@ export function SettingsPage() {
       navigator.clipboard.writeText(createdKey);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ type: exportType, format: exportFormat, range: exportRange });
+      const res = await fetch(`/api/export?${params}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${exportType}-${new Date().toISOString().slice(0, 10)}.${exportFormat}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -191,6 +214,61 @@ export function SettingsPage() {
           )}
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="h-4 w-4" />
+            Export Data
+          </CardTitle>
+          <CardDescription>
+            Download your thoughts, decisions, sessions, and sentiment data.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Data type</Label>
+              <Select value={exportType} onValueChange={setExportType}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="thoughts">Thoughts</SelectItem>
+                  <SelectItem value="decisions">Decisions</SelectItem>
+                  <SelectItem value="sessions">Sessions</SelectItem>
+                  <SelectItem value="sentiment">Sentiment</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Format</Label>
+              <Select value={exportFormat} onValueChange={setExportFormat}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="json">JSON</SelectItem>
+                  <SelectItem value="csv">CSV</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date range</Label>
+              <Select value={exportRange} onValueChange={setExportRange}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All time</SelectItem>
+                  <SelectItem value="7d">Last 7 days</SelectItem>
+                  <SelectItem value="30d">Last 30 days</SelectItem>
+                  <SelectItem value="90d">Last 90 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <Button onClick={handleExport} disabled={exporting}>
+            <Download className="mr-2 h-4 w-4" />
+            {exporting ? "Exporting..." : "Download"}
+          </Button>
+        </CardContent>
+      </Card>
+
       {showSetupGuide ? (
         <SetupWizard onDismiss={() => setShowSetupGuide(false)} />
       ) : (
