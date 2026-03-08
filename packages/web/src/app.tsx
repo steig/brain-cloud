@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthGuard } from "@/components/auth/auth-guard";
@@ -138,6 +139,7 @@ export default function App() {
           <meta property="og:title" content="Brain Cloud — AI Memory for Developers" />
           <meta property="og:description" content="Your second brain for developer decisions. Capture thoughts, log decisions, and learn from your work." />
         </Helmet>
+        <Sentry.ErrorBoundary fallback={<div className="flex h-screen items-center justify-center"><p className="text-muted-foreground">Something went wrong. Please refresh the page.</p></div>}>
         <BrowserRouter>
           <PageViewTracker>
           <DemoProvider>
@@ -157,6 +159,7 @@ export default function App() {
           </DemoProvider>
           </PageViewTracker>
         </BrowserRouter>
+        </Sentry.ErrorBoundary>
       </QueryClientProvider>
     </HelmetProvider>
   );
