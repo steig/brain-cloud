@@ -46,7 +46,7 @@ export const authMiddleware = createMiddleware<{
     if (user) {
       // Check for expired key (returned with expired marker from findUserByKeyHash)
       if ('expired' in user && user.expired) {
-        return c.json({ error: 'API key has expired' }, 401)
+        return c.json({ error: 'API key has expired', code: 'TOKEN_EXPIRED' }, 401)
       }
 
       const keyScope = user.key_scope as 'read' | 'write' | 'admin' | undefined
@@ -63,7 +63,7 @@ export const authMiddleware = createMiddleware<{
   }
 
   // 3. Neither auth method succeeded
-  return c.json({ error: 'Unauthorized' }, 401)
+  return c.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, 401)
 })
 
 // Scope enforcement middleware — use after authMiddleware
@@ -86,14 +86,14 @@ export const scopeMiddleware = createMiddleware<{
 
   if (scope === 'read') {
     if (method !== 'GET' && method !== 'HEAD') {
-      return c.json({ error: 'API key scope "read" only allows GET requests' }, 403)
+      return c.json({ error: 'API key scope "read" only allows GET requests', code: 'FORBIDDEN' }, 403)
     }
     return next()
   }
 
   // scope === 'write'
   if (method !== 'GET' && method !== 'HEAD' && method !== 'POST' && method !== 'PATCH' && method !== 'DELETE') {
-    return c.json({ error: 'Method not allowed for this API key scope' }, 403)
+    return c.json({ error: 'Method not allowed for this API key scope', code: 'FORBIDDEN' }, 403)
   }
   return next()
 })
