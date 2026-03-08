@@ -11,22 +11,14 @@ import { docs } from "@/data/docs";
 
 const ALL_SECTIONS = docs.flatMap((cat) => cat.sections);
 
-function handleTocClick(e: React.MouseEvent<HTMLAnchorElement>, onSelect?: () => void) {
-  const href = e.currentTarget.getAttribute("href");
-  if (href?.startsWith("#")) {
-    e.preventDefault();
-    const el = document.getElementById(href.slice(1));
-    if (el) el.scrollIntoView({ behavior: "smooth" });
-  }
-  onSelect?.();
-}
-
 function TOCContent({
   activeId,
   onSelect,
+  onNavigate,
 }: {
   activeId: string;
   onSelect?: () => void;
+  onNavigate?: (id: string) => void;
 }) {
   return (
     <nav aria-label="Table of contents" className="space-y-4 text-sm">
@@ -40,7 +32,11 @@ function TOCContent({
               <li key={section.id}>
                 <a
                   href={`#${section.id}`}
-                  onClick={(e) => handleTocClick(e, onSelect)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onNavigate?.(section.id);
+                    onSelect?.();
+                  }}
                   aria-current={activeId === section.id ? "true" : undefined}
                   className={cn(
                     "block rounded-md px-2 py-1 transition-colors hover:text-foreground",
@@ -129,6 +125,17 @@ export function DocsPage() {
     return () => document.removeEventListener("keydown", handleKey);
   }, [mobileOpen]);
 
+  const scrollToSection = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      isScrollingTo.current = true;
+      setActiveId(id);
+      history.replaceState(null, "", `#${id}`);
+      el.scrollIntoView({ behavior: "smooth" });
+      setTimeout(() => { isScrollingTo.current = false; }, 1000);
+    }
+  }, []);
+
   const registerRef = useCallback(
     (el: HTMLElement | null) => {
       if (el) sectionRefs.current.set(el.id, el);
@@ -194,6 +201,7 @@ export function DocsPage() {
               <TOCContent
                 activeId={activeId}
                 onSelect={() => setMobileOpen(false)}
+                onNavigate={scrollToSection}
               />
             </div>
           </div>
@@ -204,7 +212,7 @@ export function DocsPage() {
           {/* Desktop sidebar */}
           <aside className="hidden md:block w-56 shrink-0">
             <div className="sticky top-[57px] h-[calc(100vh-57px)] overflow-y-auto p-4 pr-2">
-              <TOCContent activeId={activeId} />
+              <TOCContent activeId={activeId} onNavigate={scrollToSection} />
             </div>
           </aside>
 
