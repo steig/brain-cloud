@@ -10,6 +10,7 @@ You are helping the user perform comprehensive code review with intelligent anal
 /code_review              # Full two-stage review
 /code_review --spec-only  # Stage 1 only (spec compliance)
 /code_review --quality    # Stage 2 only (code quality)
+/code_review --panel      # Expert panel review (simulated domain experts)
 /code_review --team       # Multi-specialist parallel review via Agent Teams
 ```
 
@@ -26,6 +27,67 @@ When `--team` is passed, activate multi-specialist parallel review:
 Output uses the Team Review Report format from `/team review`. Falls back to sequential if Agent Teams not enabled.
 
 Without `--team`, the existing two-stage sequential review runs unchanged.
+
+## Expert Panel Mode (`--panel`)
+
+Simulates a panel of domain experts who each review the changes through their specialized lens. Select 5-10 experts relevant to the code being reviewed.
+
+### How it works
+
+1. **Analyze the changes** — read all modified files, understand the domain
+2. **Assemble the panel** — pick 5-10 fictional experts whose domains are relevant (e.g., security engineer for auth code, DBA for query changes, frontend architect for UI work)
+3. **Each expert reviews independently** — scores 0-100, lists strengths, and provides concrete areas for improvement
+4. **Incorporate feedback** — mark each suggestion as Incorporated, Noted, or Rejected with rationale
+5. **Score summary table** — show all experts and scores
+6. **Produce final revised approach** — the improved version reflecting incorporated feedback
+
+### Expert Selection Guidelines
+
+Pick experts whose domains match the code. Common archetypes:
+
+| Domain | When to include |
+|--------|----------------|
+| Security Engineer | Auth, input handling, crypto, API endpoints |
+| Platform/Runtime Specialist | Framework-specific code (Workers, Next.js, etc.) |
+| DBA / Data Engineer | Schema changes, queries, migrations |
+| API Designer | REST/GraphQL route changes, contracts |
+| Frontend Architect | Components, state, rendering |
+| Performance Engineer | Hot paths, algorithms, caching |
+| DevOps / SRE | CI/CD, infra, deployment, monitoring |
+| Privacy / Compliance | PII handling, data retention, consent |
+| Domain Expert | Business logic specific to the project |
+| DX / Product Engineer | Pragmatic trade-offs, developer experience |
+
+### Output Format
+
+```
+## Expert Panel Review
+
+### 1. {Name} — {Domain} (Score: XX/100)
+**Expertise**: {one-line background}
+
+**Strengths**: {what's good about the approach}
+
+**Areas for improvement**:
+- {specific suggestion} → **Incorporated**: {what changed}
+- {specific suggestion} → **Noted**: {why deferred}
+- {specific suggestion} → **Rejected**: {rationale}
+
+[...repeat for each expert...]
+
+### Score Summary
+
+| Expert | Domain | Score |
+|--------|--------|-------|
+| ... | ... | XX |
+| **Average** | | **XX.X** |
+```
+
+### Combining with other modes
+
+`--panel` can run alongside Stage 1/Stage 2:
+- `/code_review --panel` — panel review only
+- `/code_review --panel --quality` — panel + Stage 2 quality review
 
 ---
 

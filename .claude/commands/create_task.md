@@ -9,6 +9,7 @@ You are helping the user create intelligent tasks with comprehensive project con
 - `/create_task "Fix mobile responsive layout"` - Create task with context exploration
 - `/create_task "add dashboard" --brainstorm` - Iterative refinement with questions
 - `/create_task -b "improve performance"` - Short form brainstorm mode
+- `/create_task "Add OAuth login" --panel` - Expert panel reviews the plan before issue creation
 
 ## Brainstorming Mode (Inspired by Superpowers)
 
@@ -77,6 +78,94 @@ After gathering all answers, synthesize into:
 5. **Dependency notes** for planning
 
 Then proceed to GitHub issue creation with this refined context.
+
+## Expert Panel Mode (`--panel`)
+
+After exploring project context, convene a panel of 5-10 domain experts who interrogate the task plan. Unlike `--brainstorm` (which asks the user questions), the panel simulates experts challenging the approach — surfacing risks, gaps, and alternatives the user hasn't considered.
+
+### How it works
+
+1. **Explore context** — analyze codebase, understand the domain (normal explore phase)
+2. **Draft initial plan** — create a preliminary implementation approach
+3. **Assemble panel** — select 5-10 experts relevant to the task domain
+4. **Each expert interrogates the plan** — asks 1-2 pointed questions about their domain
+5. **Present questions to user** — grouped by expert, one round of interactive Q&A
+6. **Experts score and advise** — based on the answers, each expert scores 0-100 and provides concrete recommendations
+7. **Incorporate feedback** — revise the plan, then create the GitHub issue
+
+### Expert Question Style
+
+Experts ask **specific, actionable questions** — not generic. They draw from the codebase context found during exploration.
+
+```
+## Expert Panel Questions
+
+### Dr. Sarah Chen — Security (asks about auth code)
+Your plan adds a public API endpoint. How will you prevent unauthorized access?
+The existing codebase uses middleware at `src/middleware/auth.ts` — will you reuse it or create new auth?
+
+### James Park — Data Architecture (asks about schema changes)
+You're adding a `preferences` field. Will this be a JSON column or a normalized table?
+The existing User model has 12 columns already — have you considered a separate table?
+
+### Maria Santos — API Design (asks about contracts)
+Will this be a breaking change for existing API consumers?
+The current API follows REST conventions in `src/routes/v1/` — does your plan maintain backwards compatibility?
+```
+
+### After User Answers
+
+Each expert reviews the answers and provides:
+
+```
+## Expert Panel Review
+
+### 1. Dr. Sarah Chen — Security (Score: 91/100)
+**Strengths**: Reusing existing auth middleware is the right call.
+**Recommendations**:
+- Add rate limiting on the new endpoint → **Incorporated**
+- Validate input size to prevent payload abuse → **Incorporated**
+
+### 2. James Park — Data Architecture (Score: 87/100)
+**Strengths**: Separate table avoids schema bloat.
+**Recommendations**:
+- Add an index on user_id for the new table → **Incorporated**
+- Consider a migration rollback strategy → **Noted**: will address in implementation
+
+[...etc...]
+
+### Score Summary
+| Expert | Domain | Score |
+|--------|--------|-------|
+| Dr. Sarah Chen | Security | 91 |
+| James Park | Data Architecture | 87 |
+| Maria Santos | API Design | 93 |
+| **Average** | | **90.3** |
+```
+
+### Expert Selection Guidelines
+
+Pick experts whose domains match the task. Common archetypes:
+
+| Domain | When to include |
+|--------|----------------|
+| Security Engineer | Auth, input handling, crypto, API endpoints |
+| Data Architect / DBA | Schema changes, queries, migrations |
+| API Designer | Route changes, contracts, versioning |
+| Platform Specialist | Framework-specific concerns (Workers, Next.js, etc.) |
+| Frontend Architect | Components, state, UX implications |
+| Performance Engineer | Hot paths, scaling, caching |
+| DevOps / SRE | Deployment, monitoring, infra impact |
+| Privacy / Compliance | PII, data retention, consent |
+| Domain Expert | Business logic specific to the project |
+| DX / Product Engineer | Pragmatic trade-offs, scope, developer experience |
+
+### Combining with brainstorm
+
+`--panel` and `--brainstorm` can combine:
+- `--brainstorm` refines the idea first (user Q&A)
+- `--panel` then interrogates the refined plan (expert Q&A)
+- `/create_task "add auth" -b --panel` — brainstorm first, then panel review
 
 ---
 

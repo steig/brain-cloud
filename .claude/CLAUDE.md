@@ -1,1 +1,1 @@
-# Claude DX Framework v2.23.0
+# Claude DX Framework v2.25.0
