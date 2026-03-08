@@ -547,6 +547,12 @@ function Footer() {
         </div>
         <div className="flex items-center gap-6">
           <a
+            href="/changelog"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Changelog
+          </a>
+          <a
             href="/privacy"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
