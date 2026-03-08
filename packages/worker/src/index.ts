@@ -6,7 +6,7 @@ import { deleteCookie } from 'hono/cookie'
 import type { Env, Variables } from './types'
 import { authRoutes } from './auth/routes'
 import { apiRoutes } from './api/index'
-import { mcpHandler } from './mcp/server'
+import { mcpHandler, SERVER_VERSION } from './mcp/server'
 import { authMiddleware, scopeMiddleware } from './auth/middleware'
 import { deleteUserAccount } from './db/queries'
 import { requestId } from './middleware/request-id'
@@ -29,8 +29,8 @@ app.use('*', secureHeaders())
 app.use('*', cors({
   origin: (origin, c) => {
     const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'
-    const allowed = [frontendUrl, 'https://dash.brain-ai.dev']
-    if (!origin || allowed.includes(origin)) return origin
+    // Allow the configured frontend URL and the request's own origin (same-host deploy)
+    if (!origin || origin === frontendUrl || origin === new URL(c.req.url).origin) return origin
     return null
   },
   credentials: true,
@@ -85,7 +85,7 @@ app.all('/mcp', mcpHandler)
 app.get('/health', async (c) => {
   const detail = c.req.query('detail') === 'true'
 
-  const base = { status: 'ok', service: 'brain-cloud', timestamp: new Date().toISOString() }
+  const base = { status: 'ok', service: 'brain-cloud', version: SERVER_VERSION, timestamp: new Date().toISOString() }
 
   if (!detail) return c.json(base)
 
@@ -96,6 +96,15 @@ app.get('/health', async (c) => {
   } catch {
     return c.json({ ...base, db: 'error' }, 503)
   }
+})
+
+// Version info
+app.get('/version', (c) => {
+  return c.json({
+    version: SERVER_VERSION,
+    name: 'brain-cloud',
+    repository: 'https://github.com/steig/brain-cloud',
+  })
 })
 
 // SPA fallback — Workers Static Assets handles static files automatically,

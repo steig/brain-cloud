@@ -25,7 +25,7 @@ export async function upsertEmbedding(
   text: string,
   metadata: EmbeddingMetadata,
 ): Promise<void> {
-  if (!env.VECTORIZE) return // graceful fallback
+  if (!env.VECTORIZE || !env.AI) return // graceful fallback
   const values = await generateEmbedding(env.AI, text)
   // Convert metadata to Record<string, VectorizeVectorMetadataValue>
   const vecMetadata: Record<string, string> = {
@@ -50,7 +50,7 @@ export async function vectorSearch(
   userId: string,
   options: { limit?: number; type?: 'thought' | 'decision' } = {},
 ): Promise<Array<{ id: string; score: number }>> {
-  if (!env.VECTORIZE) return []
+  if (!env.VECTORIZE || !env.AI) return []
   const limit = options.limit ?? 20
 
   const queryVector = await generateEmbedding(env.AI, query)

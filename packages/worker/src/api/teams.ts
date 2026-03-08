@@ -417,6 +417,10 @@ Provide a JSON response with this exact structure:
 
 Be specific, actionable, and encouraging. Keep each item to 1-2 sentences.`
 
+  if (!c.env.AI) {
+    return c.json({ error: 'AI features require Workers AI binding. Add [[ai]] to wrangler.toml to enable.' }, 501)
+  }
+
   try {
     const aiResponse = await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct' as any, {
       messages: [{ role: 'user', content: prompt }],

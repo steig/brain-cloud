@@ -115,16 +115,22 @@ export function DecisionList({ decisions, isLoading }: DecisionListProps) {
                         >
                           <p className="font-medium">{opt.option}</p>
                           {opt.pros?.length > 0 && (
-                            <div className="mt-1">
+                            <div className="mt-1 text-green-600 dark:text-green-400 text-xs">
                               {opt.pros.map((p, j) => (
-                                <p key={j} className="text-green-600 dark:text-green-400 text-xs">+ {p}</p>
+                                <div key={j} className="flex gap-1">
+                                  <span>+</span>
+                                  <Markdown content={p} compact className="[&>*]:!my-0 text-xs text-green-600 dark:text-green-400" />
+                                </div>
                               ))}
                             </div>
                           )}
                           {opt.cons?.length > 0 && (
-                            <div className="mt-1">
+                            <div className="mt-1 text-red-600 dark:text-red-400 text-xs">
                               {opt.cons.map((c, j) => (
-                                <p key={j} className="text-red-600 dark:text-red-400 text-xs">- {c}</p>
+                                <div key={j} className="flex gap-1">
+                                  <span>-</span>
+                                  <Markdown content={c} compact className="[&>*]:!my-0 text-xs text-red-600 dark:text-red-400" />
+                                </div>
                               ))}
                             </div>
                           )}

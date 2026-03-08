@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
+import { Markdown } from "@/components/shared/markdown";
 import { Zap, Brain, Handshake, Heart, TrendingUp } from "lucide-react";
 
 interface DimensionCard {
@@ -193,8 +194,8 @@ export function CoachingTab() {
             </CardHeader>
             <CardContent className="space-y-2">
               <ScoreBar score={dim.score} />
-              <p className="text-xs text-muted-foreground">{dim.explanation}</p>
-              <p className="text-xs font-medium">{dim.tip}</p>
+              <Markdown content={dim.explanation} compact className="text-xs text-muted-foreground" />
+              <Markdown content={dim.tip} compact className="text-xs font-medium" />
             </CardContent>
           </Card>
         ))}

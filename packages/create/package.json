@@ -1,0 +1,32 @@
+{
+  "name": "create-brain-cloud",
+  "version": "0.1.0",
+  "description": "Set up a self-hosted Brain Cloud instance on Cloudflare Workers",
+  "bin": {
+    "create-brain-cloud": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "keywords": [
+    "brain-cloud",
+    "mcp",
+    "cloudflare-workers",
+    "self-hosted",
+    "ai-memory"
+  ],
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/steig/brain-cloud.git",
+    "directory": "packages/create"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "typescript": "^5.9.3"
+  }
+}

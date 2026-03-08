@@ -1,0 +1,73 @@
+# Brain Cloud — Self-hosted Cloudflare Worker configuration
+# Copy this file to packages/worker/wrangler.toml and fill in your values.
+#
+# Quick start:
+#   1. wrangler d1 create brain-db
+#   2. Copy the database_id into [[d1_databases]] below
+#   3. wrangler secret put JWT_SECRET    (generate: openssl rand -hex 32)
+#   4. wrangler secret put GITHUB_CLIENT_ID
+#   5. wrangler secret put GITHUB_CLIENT_SECRET
+#   6. wrangler deploy
+#
+# Optional:
+#   - Vectorize: uncomment [[vectorize]] section, then:
+#       wrangler vectorize create brain-embeddings --dimensions 768 --metric cosine
+#   - Workers AI: uncomment [ai] section (free tier includes 10k neurons/day)
+#   - Google OAuth: wrangler secret put GOOGLE_CLIENT_ID && wrangler secret put GOOGLE_CLIENT_SECRET
+
+name = "brain-cloud"
+main = "src/index.ts"
+compatibility_date = "2025-03-05"
+compatibility_flags = ["nodejs_compat"]
+
+# Cron triggers — data retention cleanup runs daily at 3 AM UTC
+[triggers]
+crons = ["0 3 * * *"]
+
+# Static assets (React SPA)
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "404-page"
+
+# D1 database (required)
+# Create with: wrangler d1 create brain-db
+[[d1_databases]]
+binding = "DB"
+database_name = "brain-db"
+database_id = "YOUR_D1_DATABASE_ID"
+migrations_dir = "../../migrations"
+
+# Workers AI (optional — enables coaching, daily digest, embeddings)
+# Uncomment to enable:
+# [ai]
+# binding = "AI"
+
+# Vectorize semantic search (optional — enables similarity search)
+# Create with: wrangler vectorize create brain-embeddings --dimensions 768 --metric cosine
+# Uncomment to enable:
+# [[vectorize]]
+# binding = "VECTORIZE"
+# index_name = "brain-embeddings"
+
+# Environment variables
+# Replace YOUR_DOMAIN with your actual domain (e.g., brain.example.com)
+[vars]
+JWT_ISSUER = "YOUR_DOMAIN"
+FRONTEND_URL = "https://YOUR_DOMAIN"
+GITHUB_CALLBACK_URL = "https://YOUR_DOMAIN/auth/github/callback"
+GOOGLE_CALLBACK_URL = "https://YOUR_DOMAIN/auth/google/callback"
+
+# Secrets (set via CLI, never commit these):
+#   wrangler secret put JWT_SECRET
+#   wrangler secret put GITHUB_CLIENT_ID
+#   wrangler secret put GITHUB_CLIENT_SECRET
+#   wrangler secret put GOOGLE_CLIENT_ID      (optional)
+#   wrangler secret put GOOGLE_CLIENT_SECRET   (optional)
+
+# Custom domain (optional)
+# If using a custom domain via Cloudflare DNS:
+# routes = [
+#   { pattern = "YOUR_DOMAIN", custom_domain = true },
+# ]
+# Otherwise, your instance will be available at: brain-cloud.YOUR_SUBDOMAIN.workers.dev

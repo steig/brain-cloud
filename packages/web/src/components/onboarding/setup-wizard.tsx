@@ -13,7 +13,6 @@ import { Copy, Check, ChevronRight, ChevronDown, X, Loader2 } from "lucide-react
 const DISMISSED_KEY = "onboarding_dismissed";
 
 function getServerUrl() {
-  if (import.meta.env.PROD) return "https://dash.brain-ai.dev";
   return window.location.origin;
 }
 

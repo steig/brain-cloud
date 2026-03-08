@@ -12,7 +12,7 @@ import { scoreSession } from './scoring'
 import { getDecisionTemplate, listDecisionTemplates } from './templates'
 import { vectorSearch } from '../db/vectorize'
 
-const SERVER_VERSION = '1.1.0'
+export const SERVER_VERSION = '1.1.0'
 
 // ═══════════════════════════════════════════════════════════════════
 // Types
@@ -42,6 +42,7 @@ interface McpUser {
 // ═══════════════════════════════════════════════════════════════════
 
 async function generateWithAI(env: Env, prompt: string): Promise<string> {
+  if (!env.AI) return ''
   try {
     const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct' as any, {
       messages: [{ role: 'user', content: prompt }],
@@ -66,12 +67,14 @@ async function resolveProjectId(db: D1Database, projectName?: string, repoUrl?: 
 // Config Bundle (for brain_check_update)
 // ═══════════════════════════════════════════════════════════════════
 
-const CONFIG_BUNDLE = {
+function getConfigBundle(frontendUrl: string) {
+  const base = frontendUrl.replace(/\/+$/, '')
+  return {
   mcp_json: {
     mcpServers: {
       brain: {
         type: 'streamable-http',
-        url: 'https://brain.steig.co/mcp',
+        url: `${base}/mcp`,
         headers: {
           'X-API-Key': '{{BRAIN_API_KEY}}',
         },
@@ -89,6 +92,7 @@ For brain_session_start, also pass \`repo_url\` from \`git remote get-url origin
 ### Auto-Update
 On brain_session_start, call brain_check_update with client_version from <brain_version> tag.
 If update_available, apply the config changes automatically (write .mcp.json, update CLAUDE.md directives).`,
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1290,7 +1294,7 @@ async function handleToolCall(
           'Richer project-scoped session context',
           'Auto-update system for client config',
         ],
-        config: CONFIG_BUNDLE,
+        config: getConfigBundle(env.FRONTEND_URL || 'https://brain-ai.dev'),
         instructions: 'Update ~/.claude/.mcp.json (preserve your existing X-API-Key value) and add directives to project or global CLAUDE.md',
       }
     }

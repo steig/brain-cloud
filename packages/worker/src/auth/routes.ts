@@ -31,9 +31,9 @@ const STATE_COOKIE = 'oauth_state'
 // Derive callback URL from request URL origin, validated against allowlist
 function getCallbackUrl(c: AuthContext, provider: 'github' | 'google'): string {
   const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'
-  const allowed = new Set([frontendUrl, 'https://dash.brain-ai.dev'])
   const origin = new URL(c.req.url).origin
-  const safeOrigin = allowed.has(origin) ? origin : frontendUrl
+  // Allow the configured frontend URL or the request's own origin (self-hosted)
+  const safeOrigin = (origin === frontendUrl || origin === new URL(c.req.url).origin) ? origin : frontendUrl
   return `${safeOrigin}/auth/${provider}/callback`
 }
 
@@ -123,11 +123,15 @@ async function handleOAuthCallback(
     // Update last login
     await db.prepare('UPDATE users SET last_login_at = datetime(\'now\') WHERE id = ?').bind(user.id).run()
   } else {
-    // Create new user
+    // Create new user — first user on the instance becomes admin (self-hosted bootstrap)
     const id = crypto.randomUUID()
+    const userCount = await db.prepare('SELECT COUNT(*) as cnt FROM users').first<{ cnt: number }>()
+    const isFirstUser = !userCount || userCount.cnt === 0
+    const role = isFirstUser ? 'admin' : 'user'
+    const approvedAt = isFirstUser ? "datetime('now')" : 'NULL'
     await db.prepare(
-      'INSERT INTO users (id, name, email, avatar_url, system_role, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, datetime(\'now\'))'
-    ).bind(id, name, email, avatarUrl, 'user').run()
+      `INSERT INTO users (id, name, email, avatar_url, system_role, is_active, approved_at, created_at) VALUES (?, ?, ?, ?, ?, 1, ${approvedAt}, datetime('now'))`
+    ).bind(id, name, email, avatarUrl, role).run()
 
     // Create OAuth account link
     await db.prepare(
@@ -138,7 +142,7 @@ async function handleOAuthCallback(
       JSON.stringify({ name, avatar: avatarUrl }),
     ).run()
 
-    user = { id, name, email, avatar_url: avatarUrl, system_role: 'user' }
+    user = { id, name, email, avatar_url: avatarUrl, system_role: role }
   }
 
   // Generate session tokens
@@ -172,9 +176,9 @@ async function handleOAuthCallback(
   // Set cookies and redirect back to the origin that initiated login
   setAuthCookies(c, accessToken, refreshToken)
   const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'
-  const allowed = new Set([frontendUrl, 'https://dash.brain-ai.dev'])
   const origin = new URL(c.req.url).origin
-  return c.redirect(allowed.has(origin) ? origin : frontendUrl)
+  // Redirect to the request's origin if it matches frontend, otherwise fallback
+  return c.redirect(origin === frontendUrl || origin === new URL(c.req.url).origin ? origin : frontendUrl)
 }
 
 // ─── GitHub OAuth ─────────────────────────────────────────────────────
@@ -197,10 +201,14 @@ auth.get('/github', (c) => {
   })
 
   const callbackUrl = getCallbackUrl(c, 'github')
-  return c.redirect(getGitHubAuthUrl(c.env.GITHUB_CLIENT_ID, callbackUrl, state))
+  return c.redirect(getGitHubAuthUrl(c.env.GITHUB_CLIENT_ID!, callbackUrl, state))
 })
 
 auth.get('/github/callback', async (c) => {
+  if (!c.env.GITHUB_CLIENT_ID || !c.env.GITHUB_CLIENT_SECRET) {
+    return c.json({ error: 'GitHub OAuth not configured' }, 503)
+  }
+
   try {
     const code = c.req.query('code')
     const state = c.req.query('state')
@@ -227,7 +235,7 @@ auth.get('/github/callback', async (c) => {
     }
 
     const { accessToken: githubToken } = await exchangeGitHubCode(
-      code, c.env.GITHUB_CLIENT_ID, c.env.GITHUB_CLIENT_SECRET, getCallbackUrl(c, 'github'),
+      code, c.env.GITHUB_CLIENT_ID!, c.env.GITHUB_CLIENT_SECRET!, getCallbackUrl(c, 'github'),
     )
     const githubUser = await getGitHubUser(githubToken)
 
@@ -551,13 +559,30 @@ auth.delete('/api-keys/:id', async (c) => {
   }
 })
 
-// GET /providers
+// GET /providers — public endpoint listing available auth methods
 auth.get('/providers', (c) => {
+  const providers = [
+    ...(c.env.GITHUB_CLIENT_ID ? ['github'] : []),
+    ...(c.env.GOOGLE_CLIENT_ID ? ['google'] : []),
+  ]
   return c.json({
-    providers: [
-      ...(c.env.GITHUB_CLIENT_ID ? ['github'] : []),
-      ...(c.env.GOOGLE_CLIENT_ID ? ['google'] : []),
-    ],
+    providers,
+    api_key_only: providers.length === 0,
+  })
+})
+
+// GET /setup-status — public endpoint for first-run detection
+auth.get('/setup-status', async (c) => {
+  const userCount = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM users').first<{ cnt: number }>()
+  const hasUsers = userCount && userCount.cnt > 0
+  const providers = [
+    ...(c.env.GITHUB_CLIENT_ID ? ['github'] : []),
+    ...(c.env.GOOGLE_CLIENT_ID ? ['google'] : []),
+  ]
+  return c.json({
+    initialized: hasUsers,
+    providers,
+    api_key_only: providers.length === 0,
   })
 })
 

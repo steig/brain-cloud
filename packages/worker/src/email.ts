@@ -7,7 +7,15 @@ interface EmailOptions {
   text?: string
 }
 
-const FROM_EMAIL = 'noreply@brain-ai.dev'
+function getFromEmail(env: Env): string {
+  // Derive email domain from FRONTEND_URL, fall back to brain-ai.dev
+  try {
+    const host = new URL(env.FRONTEND_URL || 'https://brain-ai.dev').hostname
+    return `noreply@${host}`
+  } catch {
+    return 'noreply@brain-ai.dev'
+  }
+}
 const FROM_NAME = 'Brain Cloud'
 
 /**
@@ -27,7 +35,7 @@ export async function sendEmail(env: Env, options: EmailOptions): Promise<boolea
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         personalizations: [{ to: [{ email: options.to }] }],
-        from: { email: FROM_EMAIL, name: FROM_NAME },
+        from: { email: getFromEmail(env), name: FROM_NAME },
         subject: options.subject,
         content: [
           ...(options.text ? [{ type: 'text/plain', value: options.text }] : []),
@@ -72,7 +80,8 @@ export function teamInviteEmail(teamName: string, inviterName: string, inviteUrl
   }
 }
 
-export function welcomeEmail(userName: string): EmailOptions & { to: string } {
+export function welcomeEmail(userName: string, frontendUrl = 'https://brain-ai.dev'): EmailOptions & { to: string } {
+  const dashUrl = `${frontendUrl.replace(/\/+$/, '')}/dashboard`
   return {
     to: '',
     subject: 'Welcome to Brain Cloud',
@@ -87,12 +96,12 @@ export function welcomeEmail(userName: string): EmailOptions & { to: string } {
           <li>Run <code>npx brain-cloud init</code> to configure your tools</li>
           <li>Start capturing thoughts, decisions, and sessions</li>
         </ol>
-        <a href="https://brain-ai.dev/dashboard" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500; margin: 16px 0;">
+        <a href="${dashUrl}" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500; margin: 16px 0;">
           Go to Dashboard
         </a>
       </div>
     `,
-    text: `Welcome to Brain Cloud, ${userName}! Get started: https://brain-ai.dev/dashboard`,
+    text: `Welcome to Brain Cloud, ${userName}! Get started: ${dashUrl}`,
   }
 }
 

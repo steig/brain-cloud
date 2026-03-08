@@ -3,10 +3,10 @@ import type { Env, Variables } from '../types'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
-type ExportType = 'thoughts' | 'decisions' | 'sessions' | 'sentiment' | 'all'
+type ExportType = 'thoughts' | 'decisions' | 'sessions' | 'sentiment' | 'handoffs' | 'dx_events' | 'all'
 type ExportFormat = 'json' | 'csv'
 
-const VALID_TYPES = new Set<ExportType>(['thoughts', 'decisions', 'sessions', 'sentiment', 'all'])
+const VALID_TYPES = new Set<ExportType>(['thoughts', 'decisions', 'sessions', 'sentiment', 'handoffs', 'dx_events', 'all'])
 const VALID_FORMATS = new Set<ExportFormat>(['json', 'csv'])
 const VALID_RANGES: Record<string, number | null> = {
   '7d': 7,
@@ -98,6 +98,28 @@ async function queryType(
        ORDER BY created_at DESC`
     ).bind(...binds).all()
     result.sentiment = results as Record<string, unknown>[]
+  }
+
+  if (type === 'handoffs' || type === 'all') {
+    const binds: unknown[] = [userId]
+    if (dateFilter) binds.push(dateFilter)
+    const { results } = await db.prepare(
+      `SELECT id, from_project, to_project, message, handoff_type, priority, status, metadata, created_at
+       FROM handoffs WHERE user_id = ?${dateClause}
+       ORDER BY created_at DESC`
+    ).bind(...binds).all()
+    result.handoffs = results as Record<string, unknown>[]
+  }
+
+  if (type === 'dx_events' || type === 'all') {
+    const binds: unknown[] = [userId]
+    if (dateFilter) binds.push(dateFilter)
+    const { results } = await db.prepare(
+      `SELECT id, event_type, command, success, duration_ms, error_message, tokens_in, tokens_out, project_id, created_at
+       FROM dx_events WHERE user_id = ?${dateClause}
+       ORDER BY created_at DESC`
+    ).bind(...binds).all()
+    result.dx_events = results as Record<string, unknown>[]
   }
 
   return result

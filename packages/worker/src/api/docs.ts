@@ -3,7 +3,8 @@ import type { Env, Variables } from '../types'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
-const openApiSpec = {
+function getOpenApiSpec(frontendUrl: string) {
+  return {
   openapi: '3.1.0',
   info: {
     title: 'Brain Cloud API',
@@ -11,7 +12,7 @@ const openApiSpec = {
     description: 'Personal knowledge management and AI-powered developer tooling API.',
   },
   servers: [
-    { url: 'https://brain-ai.dev', description: 'Production' },
+    { url: frontendUrl, description: 'This instance' },
     { url: 'http://localhost:8787', description: 'Local development' },
   ],
   components: {
@@ -144,10 +145,14 @@ const openApiSpec = {
       post: { tags: ['MCP'], summary: 'MCP JSON-RPC endpoint', responses: { '200': { description: 'JSON-RPC response' } } },
     },
   },
+  }
 }
 
 // OpenAPI JSON
-app.get('/openapi.json', (c) => c.json(openApiSpec))
+app.get('/openapi.json', (c) => {
+  const frontendUrl = c.env.FRONTEND_URL || new URL(c.req.url).origin
+  return c.json(getOpenApiSpec(frontendUrl))
+})
 
 // Swagger UI
 app.get('/', (c) => {

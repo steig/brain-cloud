@@ -126,11 +126,7 @@ export function SessionList({ sessions, isLoading }: SessionListProps) {
                     <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
                       <Target className="h-3 w-3" /> Goals
                     </div>
-                    <ul className="text-sm space-y-0.5">
-                      {session.goals.map((g, i) => (
-                        <li key={i} className="text-sm">• {g}</li>
-                      ))}
-                    </ul>
+                    <Markdown content={session.goals.map((g) => "- " + g).join("\n")} compact />
                   </div>
                 )}
 
@@ -139,11 +135,7 @@ export function SessionList({ sessions, isLoading }: SessionListProps) {
                     <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
                       <Trophy className="h-3 w-3" /> Accomplishments
                     </div>
-                    <ul className="text-sm space-y-0.5">
-                      {session.accomplishments.map((a, i) => (
-                        <li key={i} className="text-sm">• {a}</li>
-                      ))}
-                    </ul>
+                    <Markdown content={session.accomplishments.map((a) => "- " + a).join("\n")} compact />
                   </div>
                 )}
 
@@ -152,11 +144,7 @@ export function SessionList({ sessions, isLoading }: SessionListProps) {
                     <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground mb-1">
                       <AlertTriangle className="h-3 w-3" /> Blockers
                     </div>
-                    <ul className="text-sm space-y-0.5">
-                      {session.blockers.map((b, i) => (
-                        <li key={i} className="text-sm">• {b}</li>
-                      ))}
-                    </ul>
+                    <Markdown content={session.blockers.map((b) => "- " + b).join("\n")} compact />
                   </div>
                 )}
 

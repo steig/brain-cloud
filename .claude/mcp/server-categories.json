@@ -51,7 +51,7 @@
         "brain": {
           "package": "@brain/mcp-server",
           "command": "node",
-          "args": ["/home/steig/code/brain/mcp-server/dist/index.js"],
+          "args": ["PATH_TO_BRAIN_MCP_SERVER/dist/index.js"],
           "requires_env": ["BRAIN_API_KEY"],
           "optional_env": ["BRAIN_API_URL"],
           "stateless": true,
@@ -137,7 +137,7 @@
         },
         "brain": {
           "command": "node",
-          "args": ["/home/steig/code/brain/mcp-server/dist/index.js"]
+          "args": ["PATH_TO_BRAIN_MCP_SERVER/dist/index.js"]
         }
       }
     },

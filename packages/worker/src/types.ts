@@ -4,7 +4,7 @@ export interface Env {
   DB: D1Database
 
   // Workers AI
-  AI: Ai
+  AI?: Ai
 
   // Vectorize index for semantic search
   VECTORIZE?: VectorizeIndex
@@ -14,8 +14,8 @@ export interface Env {
 
   // Secrets (set via `wrangler secret put`)
   JWT_SECRET: string
-  GITHUB_CLIENT_ID: string
-  GITHUB_CLIENT_SECRET: string
+  GITHUB_CLIENT_ID?: string
+  GITHUB_CLIENT_SECRET?: string
   GOOGLE_CLIENT_ID?: string
   GOOGLE_CLIENT_SECRET?: string
   SENTRY_DSN?: string
@@ -24,7 +24,7 @@ export interface Env {
   // Vars (set in wrangler.toml)
   JWT_ISSUER: string
   FRONTEND_URL: string
-  GITHUB_CALLBACK_URL: string
+  GITHUB_CALLBACK_URL?: string
   GOOGLE_CALLBACK_URL?: string
 }
 

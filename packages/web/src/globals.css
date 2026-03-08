@@ -124,6 +124,9 @@
   }
 }
 
+/* Let prose/card backgrounds show through highlight.js blocks */
+.hljs { background: transparent !important; }
+
 /* ── Prose typography (no @tailwindcss/typography in TW4) ── */
 .prose {
   color: var(--foreground);

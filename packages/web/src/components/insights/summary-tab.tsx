@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBrainSummary } from "@/lib/queries";
+import { Markdown } from "@/components/shared/markdown";
 import { Brain, Lightbulb, GitBranch, Calendar, Clock, Trophy, AlertTriangle, Hash } from "lucide-react";
 
 function formatDate(daysAgo: number): string {
@@ -113,7 +114,7 @@ export function SummaryTab() {
                 {accomplishments.map((a, i) => (
                   <li key={i} className="text-sm">
                     <span className="text-muted-foreground text-xs">{a.date}</span>
-                    <p>{a.content}</p>
+                    <Markdown content={a.content} compact />
                   </li>
                 ))}
               </ul>
@@ -135,7 +136,7 @@ export function SummaryTab() {
                 {blockers.map((b, i) => (
                   <li key={i} className="text-sm">
                     <span className="text-muted-foreground text-xs">{b.date}</span>
-                    <p>{b.content}</p>
+                    <Markdown content={b.content} compact />
                   </li>
                 ))}
               </ul>
@@ -158,7 +159,7 @@ export function SummaryTab() {
               <ul className="space-y-3">
                 {insights.map((ins, i) => (
                   <li key={i} className="text-sm border-l-2 border-amber-500/30 pl-3">
-                    <p>{ins.content}</p>
+                    <Markdown content={ins.content} compact />
                     <span className="text-muted-foreground text-xs">{ins.date}</span>
                   </li>
                 ))}

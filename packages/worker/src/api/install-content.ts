@@ -996,7 +996,7 @@ IF Brain MCP available:
 
 IF Brain MCP not available:
   -> "Brain MCP not detected. Check your MCP server configuration."
-  -> "See https://brain.steig.me for setup instructions."
+  -> "See https://brain-ai.dev/docs for setup instructions."
   -> Continue with limited onboarding
 \`\`\`
 

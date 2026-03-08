@@ -15,6 +15,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { ChartContainer } from "@/components/ui/chart";
+import { Markdown } from "@/components/shared/markdown";
 import {
   Zap,
   Brain,
@@ -264,7 +265,7 @@ function DimensionBar({ dim }: { dim: Dimension }) {
             }}
           />
         </div>
-        <p className="text-xs text-muted-foreground">{dim.explanation}</p>
+        <Markdown content={dim.explanation} compact className="text-xs text-muted-foreground" />
       </CardContent>
     </Card>
   );
@@ -288,7 +289,7 @@ function CoachingTips({ dimensions }: { dimensions: Dimension[] }) {
             <div className="mt-0.5 shrink-0">{dim.icon}</div>
             <div className="space-y-1">
               <p className="text-sm font-medium">{dim.name}</p>
-              <p className="text-sm text-muted-foreground">{dim.tip}</p>
+              <Markdown content={dim.tip} compact className="text-sm text-muted-foreground" />
             </div>
           </div>
         ))}

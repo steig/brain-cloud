@@ -7,8 +7,9 @@ import { join } from "node:path";
 import { readFile, writeFile, mkdir, access } from "node:fs/promises";
 import { execSync } from "node:child_process";
 
-const MCP_URL = "https://dash.brain-ai.dev/mcp";
-const DASHBOARD_URL = "https://dash.brain-ai.dev/settings";
+const BASE_URL = process.env.BRAIN_SERVER_URL || "https://dash.brain-ai.dev";
+const MCP_URL = `${BASE_URL}/mcp`;
+const DASHBOARD_URL = `${BASE_URL}/settings`;
 
 const BANNER = `
   ____            _        ____ _                 _
@@ -231,7 +232,7 @@ Next steps:
   2. Try asking Claude: "Record a thought about my current project"
   3. Visit ${DASHBOARD_URL} to view your data
 
-Documentation: https://github.com/steigr/brain-cloud
+Documentation: https://github.com/steig/brain-cloud
 `);
   } finally {
     rl.close();

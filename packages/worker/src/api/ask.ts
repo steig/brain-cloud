@@ -73,6 +73,9 @@ ${contextBlock}`
   messages.push({ role: 'user', content: question })
 
   // 4. Get response from Workers AI (non-streaming for reliability)
+  if (!c.env.AI) {
+    return c.json({ error: 'AI features require Workers AI binding. Add [[ai]] to wrangler.toml to enable.' }, 501)
+  }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const aiResponse = (await c.env.AI.run('@cf/meta/llama-3.1-8b-instruct' as any, {
     messages,

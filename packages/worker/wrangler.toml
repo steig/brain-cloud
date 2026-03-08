@@ -14,6 +14,10 @@ binding = "ASSETS"
 not_found_handling = "404-page"
 
 # D1 database binding
+# NOTE: These are the author's database IDs. Self-hosters must replace with their own.
+# Create your D1 database with: wrangler d1 create brain-db
+# Then update the database_id below with the ID from the output.
+# See wrangler.toml.template (issue #109) for a clean starting point.
 [[d1_databases]]
 binding = "DB"
 database_name = "brain-db"
@@ -48,7 +52,7 @@ GOOGLE_CALLBACK_URL = "https://staging.brain-ai.dev/auth/google/callback"
 
 # Staging needs its own D1 database — create with:
 # wrangler d1 create brain-db-staging
-# Then update the database_id below
+# Then update the database_id below with your own staging database ID.
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "brain-db-staging"

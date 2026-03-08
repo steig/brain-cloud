@@ -17,13 +17,16 @@ import {
   ArrowRight,
   Menu,
   X,
+  Shield,
+  Terminal,
+  Server,
 } from "lucide-react";
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "How It Works", href: "#how-it-works" },
+  { label: "Self-Host", href: "#pricing" },
   { label: "Docs", href: "/docs" },
-  { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
 ];
 
@@ -68,25 +71,25 @@ const FEATURES = [
 
 const STEPS = [
   {
-    icon: Cloud,
+    icon: Server,
     step: "1",
-    title: "Install the MCP Server",
+    title: "Deploy to Cloudflare",
     description:
-      "Add Brain Cloud to your Claude setup with a single config change. Works with Claude Code, Claude Desktop, and any MCP-compatible client.",
+      "Clone the repo, create a D1 database, and deploy. Free tier covers solo developers — no credit card needed.",
   },
   {
-    icon: Zap,
+    icon: Terminal,
     step: "2",
-    title: "Work Normally",
+    title: "Connect Claude",
     description:
-      "Keep using Claude exactly as you do today. Brain Cloud captures thoughts, decisions, and insights in the background.",
+      "Add your instance as an MCP server in Claude Code or Claude Desktop. One config snippet, one API key.",
   },
   {
     icon: Brain,
     step: "3",
-    title: "Your Brain Remembers",
+    title: "Your Brain Grows",
     description:
-      "Search past context, review decisions, get coaching insights, and share knowledge — all from your dashboard.",
+      "Work normally. Brain Cloud captures decisions, insights, and context in the background. Every session makes your AI smarter.",
   },
 ];
 
@@ -101,28 +104,32 @@ const FAQ_ITEMS = [
     a: "No. Brain Cloud only stores the thoughts, decisions, and session data that Claude explicitly sends through MCP tool calls. It never accesses your files, repos, or code directly.",
   },
   {
+    q: "How much does Cloudflare cost?",
+    a: "Nothing for personal use. The Workers free tier includes 100,000 requests/day, 5 GB D1 storage, and 10,000 Workers AI neurons/day. That covers solo developers and small teams with room to spare.",
+  },
+  {
     q: "Which AI clients are supported?",
     a: "Brain Cloud works with any MCP-compatible client, including Claude Code (CLI), Claude Desktop, and other tools that support the MCP standard.",
   },
   {
     q: "Where is my data stored?",
-    a: "Your data is stored securely in our cloud infrastructure. You can export all your data at any time as JSON or CSV, and delete your account and all associated data whenever you want.",
+    a: "On YOUR Cloudflare account. When you self-host, your data lives in your own D1 database. We never see it, touch it, or have access to it. You can also export everything as JSON or CSV at any time.",
   },
   {
-    q: "Can I self-host Brain Cloud?",
-    a: "The MCP server is open source and can be pointed at any compatible backend. Self-hosting documentation is on the roadmap.",
+    q: "Can I use my own domain?",
+    a: "Yes. Add your domain to Cloudflare DNS, update the route in wrangler.toml, and redeploy. Your instance runs at whatever domain you choose.",
   },
   {
-    q: "Is there a free tier?",
-    a: "Yes. The free tier includes everything you need to get started with persistent AI memory, including search, recall, and basic analytics.",
+    q: "How do I update?",
+    a: "Pull the latest changes, run migrations, rebuild, and redeploy. Four commands: git pull, pnpm install, wrangler d1 migrations apply, wrangler deploy.",
   },
   {
-    q: "How does team sharing work?",
-    a: "Teams can share handoffs, decisions, and insights across members. Each person controls what they share — nothing is shared automatically without explicit action.",
+    q: "Do I need to set up OAuth?",
+    a: "No. Without OAuth, Brain Cloud runs in API-key-only mode — great for single-user instances. Add GitHub or Google OAuth when you want browser-based login.",
   },
   {
-    q: "What happens if I stop using Brain Cloud?",
-    a: "Your data stays available for export. We don't delete accounts without notice. You own your data and can take it with you.",
+    q: "Is there a managed hosting option?",
+    a: "Coming soon. If you'd rather not manage your own instance, we're building a managed tier. For now, self-hosting is the way to go.",
   },
 ];
 
@@ -158,6 +165,15 @@ function NavBar() {
               {link.label}
             </a>
           ))}
+          <a
+            href="https://github.com/steig/brain-cloud"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            aria-label="GitHub"
+          >
+            <Github className="h-5 w-5" />
+          </a>
           <Button asChild size="sm">
             <a href={`${APP_URL}login`}>Sign In</a>
           </Button>
@@ -190,6 +206,15 @@ function NavBar() {
                 {link.label}
               </a>
             ))}
+            <a
+              href="https://github.com/steig/brain-cloud"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Github className="h-4 w-4" />
+              GitHub
+            </a>
             <Button asChild size="sm" className="mt-2 w-full">
               <a href={`${APP_URL}login`}>Sign In</a>
             </Button>
@@ -205,8 +230,8 @@ function HeroSection() {
     <section className="px-4 pb-16 pt-20 sm:px-6 md:pb-24 md:pt-28">
       <div className="mx-auto max-w-4xl text-center">
         <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-4 py-1.5 text-sm text-muted-foreground">
-          <Brain className="h-4 w-4" />
-          Early access — join the waitlist
+          <Github className="h-4 w-4" />
+          Open source &middot; AGPL-3.0
         </div>
         <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
           Your AI remembers
@@ -214,13 +239,13 @@ function HeroSection() {
           <span className="text-muted-foreground">everything you&apos;ve learned</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-          Brain Cloud gives Claude persistent memory across sessions. Every insight, decision, and
-          context is captured, searchable, and shared — so you never start from scratch.
+          Brain Cloud gives Claude persistent memory across sessions. Self-host on Cloudflare Workers for free —
+          your data, your infrastructure, fully open source.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild size="lg" className="w-full sm:w-auto">
-            <a href={`${APP_URL}login`}>
-              Join the Waitlist
+            <a href="/docs#self-host-quickstart">
+              Deploy Your Own
               <ArrowRight className="ml-2 h-4 w-4" />
             </a>
           </Button>
@@ -230,6 +255,17 @@ function HeroSection() {
             </a>
           </Button>
         </div>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Free on Cloudflare Workers &middot; D1 + optional AI &middot;{" "}
+          <a
+            href="https://github.com/steig/brain-cloud"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            View on GitHub
+          </a>
+        </p>
       </div>
     </section>
   );
@@ -369,22 +405,91 @@ function FAQSection() {
   );
 }
 
+function PrivacySection() {
+  return (
+    <section className="scroll-mt-16 px-4 py-16 sm:px-6 md:py-24">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-12 text-center md:mb-16">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+            Your data. Your infrastructure.
+          </h2>
+          <p className="mt-4 text-lg text-muted-foreground">
+            Self-hosted means we never see your data. Ever.
+          </p>
+        </div>
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-lg border border-border bg-card p-6">
+            <Shield className="mb-3 h-6 w-6 text-muted-foreground" />
+            <h3 className="mb-2 font-semibold">Your Cloudflare account</h3>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Data lives in your own D1 database on your own Cloudflare account. No third-party storage, no intermediaries.
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-6">
+            <Github className="mb-3 h-6 w-6 text-muted-foreground" />
+            <h3 className="mb-2 font-semibold">Fully auditable</h3>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Every line of code is on GitHub. Read the source, verify the behavior, fork and modify anything you want.
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card p-6">
+            <Download className="mb-3 h-6 w-6 text-muted-foreground" />
+            <h3 className="mb-2 font-semibold">Full data portability</h3>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Export everything as JSON or CSV at any time. No lock-in, no restrictions, no vendor dependency.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function PricingSection() {
   return (
-    <section id="pricing" className="scroll-mt-16 px-4 py-16 sm:px-6 md:py-24">
+    <section id="pricing" className="scroll-mt-16 border-t border-border bg-muted/30 px-4 py-16 sm:px-6 md:py-24">
       <div className="mx-auto max-w-3xl text-center">
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Pricing
+          Free &amp; open source
         </h2>
         <p className="mt-4 text-lg text-muted-foreground">
-          Brain Cloud is free while in beta. Pricing plans coming soon.
+          Deploy on your own Cloudflare account. Zero cost on the free tier.
         </p>
-        <Button asChild size="lg" className="mt-8">
-          <a href={`${APP_URL}login`}>
-            Join the Waitlist
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </a>
-        </Button>
+        <div className="mx-auto mt-8 max-w-md rounded-lg border border-border bg-card p-8">
+          <div className="mb-1 text-sm font-medium text-muted-foreground">Self-Hosted</div>
+          <div className="mb-4 text-4xl font-bold">$0</div>
+          <ul className="mb-6 space-y-2 text-left text-sm text-muted-foreground">
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-green-500">&#10003;</span>
+              Full MCP server + web dashboard
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-green-500">&#10003;</span>
+              100,000 requests/day (Workers free tier)
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-green-500">&#10003;</span>
+              5 GB storage (D1 free tier)
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-green-500">&#10003;</span>
+              AI coaching &amp; semantic search (optional)
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="mt-0.5 text-green-500">&#10003;</span>
+              AGPL-3.0 — fork, modify, contribute
+            </li>
+          </ul>
+          <Button asChild size="lg" className="w-full">
+            <a href="/docs#self-host-quickstart">
+              Deploy Now
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </a>
+          </Button>
+        </div>
+        <p className="mt-6 text-sm text-muted-foreground">
+          Managed hosting coming soon for teams who prefer not to self-host.
+        </p>
       </div>
     </section>
   );
@@ -397,10 +502,22 @@ function Footer() {
         <div className="flex items-center gap-2">
           <BrainCloudLogo size={24} className="text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} Brain Cloud. All rights reserved.
+            &copy; {new Date().getFullYear()} Brain Cloud &middot; AGPL-3.0
           </span>
         </div>
         <div className="flex items-center gap-6">
+          <a
+            href="/docs"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Docs
+          </a>
+          <a
+            href="/docs#self-host-overview"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Self-Host
+          </a>
           <a
             href="/changelog"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -414,13 +531,7 @@ function Footer() {
             Privacy
           </a>
           <a
-            href="/terms"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Terms
-          </a>
-          <a
-            href="https://github.com/stellar-gen/brain-cloud"
+            href="https://github.com/steig/brain-cloud"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -437,14 +548,15 @@ export function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Helmet>
-        <title>Brain Cloud — AI Memory for Developers</title>
-        <meta name="description" content="Your second brain for developer decisions. Capture thoughts, log decisions, review outcomes, and improve over time." />
+        <title>Brain Cloud — Open Source AI Memory for Developers</title>
+        <meta name="description" content="Self-host persistent AI memory on Cloudflare Workers. Capture decisions, recall context, and get coaching insights. Free and open source (AGPL-3.0)." />
       </Helmet>
       <NavBar />
       <HeroSection />
       <ProblemSection />
       <HowItWorksSection />
       <FeaturesSection />
+      <PrivacySection />
       <PricingSection />
       <FAQSection />
       <Footer />

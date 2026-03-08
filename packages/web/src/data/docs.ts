@@ -59,20 +59,19 @@ There's nothing for you to do manually — Claude handles the logging. You just 
 
 ## 1. Get Your API Key
 
-1. Sign up at [brain.steig.cloud](https://brain.steig.cloud)
-2. Go to **Settings → API Keys**
-3. Create a key — copy it somewhere safe
+1. Go to **Settings → API Keys**
+2. Create a key — copy it somewhere safe
 
 ## 2. Add to Claude Code
 
-Create or edit \`~/.claude/mcp.json\`:
+Create or edit \`~/.claude/mcp.json\` (replace \`YOUR_SERVER\` with your instance URL):
 
 \`\`\`json
 {
   "mcpServers": {
     "brain": {
       "type": "url",
-      "url": "https://brain.steig.workers.dev/sse",
+      "url": "YOUR_SERVER/mcp",
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY"
       }
@@ -277,6 +276,285 @@ Track developer experience metrics to spot friction:
 - **Learning curve** — are you getting better over time?
 
 The analytics aren't just numbers — \`brain_coaching_insights\` turns them into actionable suggestions like "Your sessions after 4pm have 40% more blockers — consider tackling complex tasks in the morning."`,
+      },
+    ],
+  },
+  {
+    title: "Self-Hosting",
+    sections: [
+      {
+        id: "self-host-overview",
+        title: "Overview",
+        content: `Brain Cloud is fully self-hostable on Cloudflare Workers. The free tier covers solo developers — no paid plans required.
+
+## What You Need
+
+- A [Cloudflare account](https://dash.cloudflare.com/sign-up) (free)
+- [Node.js](https://nodejs.org/) 18+
+- [pnpm](https://pnpm.io/) 9+
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/): \`npm i -g wrangler\`
+
+## Architecture
+
+\`\`\`mermaid
+flowchart LR
+    A["🤖 Claude Code"] -- "MCP" --> B["⚙️ Worker"]
+    B --> C[("💾 D1")]
+    B -.-> D["🧠 Workers AI"]
+    B -.-> E["🔍 Vectorize"]
+\`\`\`
+
+Your instance is a single Cloudflare Worker that serves both the web dashboard (as static assets) and the API/MCP endpoints. D1 (SQLite) is the only required binding — Workers AI and Vectorize are optional enhancements.
+
+## What's Included
+
+| Feature | Required | Notes |
+|---------|----------|-------|
+| MCP server | D1 only | Full tool support |
+| Web dashboard | D1 only | All pages work |
+| GitHub/Google OAuth | OAuth secrets | Or use API-key-only mode |
+| AI coaching & digests | Workers AI | Free tier: 10k neurons/day |
+| Semantic search | Vectorize | Similarity-based recall |
+| Data export | D1 only | JSON or CSV |`,
+      },
+      {
+        id: "self-host-quickstart",
+        title: "Quick Start",
+        content: `## 1. Clone & Install
+
+\`\`\`bash
+git clone https://github.com/steig/brain-cloud.git
+cd brain-cloud
+pnpm install
+\`\`\`
+
+## 2. Authenticate with Cloudflare
+
+\`\`\`bash
+wrangler login
+\`\`\`
+
+## 3. Create Your D1 Database
+
+\`\`\`bash
+wrangler d1 create brain-db
+# Note the database_id from the output
+\`\`\`
+
+## 4. Configure Your Instance
+
+\`\`\`bash
+cp wrangler.toml.template packages/worker/wrangler.toml
+\`\`\`
+
+Edit \`packages/worker/wrangler.toml\`:
+- Set \`database_id\` to your D1 ID
+- Set \`FRONTEND_URL\` to your domain (or leave as workers.dev)
+- Set \`JWT_ISSUER\` to your domain
+- Set callback URLs to match your domain
+
+## 5. Run Migrations
+
+\`\`\`bash
+wrangler d1 migrations apply brain-db --remote
+\`\`\`
+
+## 6. Set Secrets
+
+\`\`\`bash
+# Generate a JWT secret
+openssl rand -hex 32
+wrangler secret put JWT_SECRET
+\`\`\`
+
+## 7. Set Up OAuth (Optional)
+
+\`\`\`bash
+wrangler secret put GITHUB_CLIENT_ID
+wrangler secret put GITHUB_CLIENT_SECRET
+\`\`\`
+
+See the OAuth Setup section for details. If you skip this, Brain Cloud runs in API-key-only mode.
+
+## 8. Build & Deploy
+
+\`\`\`bash
+pnpm --filter brain-web build
+cd packages/worker && wrangler deploy
+\`\`\`
+
+Your instance is live at \`https://brain-cloud.YOUR_SUBDOMAIN.workers.dev\`.
+
+The first user to sign in (via OAuth) automatically becomes the admin.`,
+      },
+      {
+        id: "self-host-oauth",
+        title: "OAuth Setup",
+        content: `## GitHub (Recommended)
+
+1. Go to [GitHub Developer Settings → OAuth Apps](https://github.com/settings/developers)
+2. Click **New OAuth App**
+3. Fill in:
+   - **Application name**: Brain Cloud
+   - **Homepage URL**: \`https://YOUR_DOMAIN\`
+   - **Authorization callback URL**: \`https://YOUR_DOMAIN/auth/github/callback\`
+4. Copy the Client ID and Client Secret
+5. Set as Worker secrets:
+
+\`\`\`bash
+wrangler secret put GITHUB_CLIENT_ID
+wrangler secret put GITHUB_CLIENT_SECRET
+\`\`\`
+
+## Google (Optional)
+
+1. Go to [Google Cloud Console → Credentials](https://console.cloud.google.com/apis/credentials)
+2. Create an **OAuth 2.0 Client ID** (Web application)
+3. Add authorized redirect URI: \`https://YOUR_DOMAIN/auth/google/callback\`
+4. Set as Worker secrets:
+
+\`\`\`bash
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+\`\`\`
+
+## No OAuth (API Key Only)
+
+If you don't configure any OAuth provider, Brain Cloud runs in **API-key-only mode**. The first user is created during initial setup and authenticates exclusively via API key. This works well for single-user self-hosted instances where you only interact via MCP.`,
+      },
+      {
+        id: "self-host-optional",
+        title: "Optional Features",
+        content: `## Vectorize (Semantic Search)
+
+Enables similarity-based search across your thoughts and decisions. When you ask "What did I decide about auth?", Vectorize finds semantically related entries even if they don't contain the exact keyword.
+
+\`\`\`bash
+# Create the index
+wrangler vectorize create brain-embeddings --dimensions 768 --metric cosine
+\`\`\`
+
+Uncomment in \`wrangler.toml\`:
+
+\`\`\`toml
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "brain-embeddings"
+\`\`\`
+
+Then redeploy: \`wrangler deploy\`
+
+## Workers AI (Coaching & Digests)
+
+Enables AI-powered daily digests, coaching insights, and automatic embedding generation.
+
+Uncomment in \`wrangler.toml\`:
+
+\`\`\`toml
+[ai]
+binding = "AI"
+\`\`\`
+
+Then redeploy: \`wrangler deploy\`
+
+Workers AI free tier includes 10,000 neurons per day — sufficient for personal use.
+
+## Custom Domain
+
+1. Add your domain to Cloudflare (DNS must be on Cloudflare)
+2. Add to \`wrangler.toml\`:
+
+\`\`\`toml
+routes = [
+  { pattern = "brain.yourdomain.com", custom_domain = true },
+]
+\`\`\`
+
+3. Update \`FRONTEND_URL\`, \`JWT_ISSUER\`, and callback URLs in \`[vars]\`
+4. Update your GitHub/Google OAuth app callback URLs
+5. Redeploy: \`wrangler deploy\``,
+      },
+      {
+        id: "self-host-config",
+        title: "Configuration Reference",
+        content: `## Environment Variables
+
+Set in the \`[vars]\` section of \`wrangler.toml\`:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| \`JWT_ISSUER\` | Yes | Your domain (e.g. \`brain.example.com\`) |
+| \`FRONTEND_URL\` | Yes | Full URL (e.g. \`https://brain.example.com\`) |
+| \`GITHUB_CALLBACK_URL\` | If using GitHub | \`https://YOUR_DOMAIN/auth/github/callback\` |
+| \`GOOGLE_CALLBACK_URL\` | If using Google | \`https://YOUR_DOMAIN/auth/google/callback\` |
+
+## Secrets
+
+Set via \`wrangler secret put\`:
+
+| Secret | Required | Description |
+|--------|----------|-------------|
+| \`JWT_SECRET\` | Yes | 256-bit hex string for JWT signing |
+| \`GITHUB_CLIENT_ID\` | No | GitHub OAuth client ID |
+| \`GITHUB_CLIENT_SECRET\` | No | GitHub OAuth client secret |
+| \`GOOGLE_CLIENT_ID\` | No | Google OAuth client ID |
+| \`GOOGLE_CLIENT_SECRET\` | No | Google OAuth client secret |
+
+## Bindings
+
+| Binding | Required | Description |
+|---------|----------|-------------|
+| \`DB\` (D1) | Yes | SQLite database |
+| \`AI\` (Workers AI) | No | Coaching, digests, embeddings |
+| \`VECTORIZE\` | No | Semantic search index |
+| \`ASSETS\` | Yes | Static SPA files (auto-configured) |`,
+      },
+      {
+        id: "self-host-updating",
+        title: "Updating & Troubleshooting",
+        content: `## Updating Your Instance
+
+\`\`\`bash
+git pull origin main
+pnpm install
+wrangler d1 migrations apply brain-db --remote
+pnpm --filter brain-web build
+cd packages/worker && wrangler deploy
+\`\`\`
+
+## Troubleshooting
+
+### CORS errors in browser console
+
+Your \`FRONTEND_URL\` doesn't match the domain you're accessing from. Update \`FRONTEND_URL\` in \`wrangler.toml\` to match your actual URL, then redeploy.
+
+### OAuth redirect mismatch
+
+The callback URL in your GitHub/Google app must exactly match the \`GITHUB_CALLBACK_URL\` / \`GOOGLE_CALLBACK_URL\` in \`wrangler.toml\`.
+
+### D1 migration errors
+
+Check what tables exist:
+
+\`\`\`bash
+wrangler d1 execute brain-db --remote --command "SELECT name FROM sqlite_master WHERE type='table';"
+\`\`\`
+
+### "AI features require Workers AI binding"
+
+Enable Workers AI by uncommenting the \`[ai]\` section in \`wrangler.toml\` and redeploying.
+
+### Worker not found after deploy
+
+Run \`wrangler whoami\` to verify authentication. Check \`wrangler deploy\` output for the URL.
+
+### Data export
+
+You can export all your data at any time via **Settings → Export** or the API:
+
+\`\`\`bash
+curl -H "X-API-Key: YOUR_KEY" https://YOUR_DOMAIN/api/export?format=json&type=all
+\`\`\``,
       },
     ],
   },

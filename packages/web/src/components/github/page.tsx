@@ -65,7 +65,7 @@ function LinkRepoForm() {
     <form onSubmit={handleSubmit} className="flex items-end gap-2">
       <div className="flex-1">
         <Input
-          placeholder="Owner (e.g. steig)"
+          placeholder="Owner (e.g. octocat)"
           value={owner}
           onChange={(e) => setOwner(e.target.value)}
         />
