@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import * as q from '../db/queries'
 import { createDecisionSchema, updateDecisionSchema, decisionReviewSchema, validateBody } from './schemas'
-import { upsertEmbedding, deleteEmbedding } from '../db/vectorize'
+import { upsertEmbedding, deleteEmbedding, vectorSearch } from '../db/vectorize'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -194,6 +194,44 @@ app.get('/review-stats', async (c) => {
     reviewed_decisions: (reviewedDecisions as any)?.count ?? 0,
     rating_distribution: ratingDist.results,
   })
+})
+
+// GET /api/decisions/:id/related - Find related entries via vector similarity
+app.get('/:id/related', async (c) => {
+  const user = c.get('user')
+  const id = c.req.param('id')
+
+  // Verify ownership
+  const decision = await c.env.DB.prepare(
+    'SELECT id, title, chosen, rationale FROM decisions WHERE id = ? AND user_id = ? AND deleted_at IS NULL'
+  ).bind(id, user.id).first<{ id: string; title: string; chosen: string; rationale: string }>()
+  if (!decision) return c.json({ error: 'Not found' }, 404)
+
+  const queryText = `${decision.title} ${decision.chosen ?? ''} ${decision.rationale ?? ''}`
+  const similar = await vectorSearch(c.env, queryText, user.id, { limit: 6 })
+
+  // Remove self from results
+  const related = similar.filter(r => r.id !== id).slice(0, 5)
+  if (related.length === 0) return c.json([])
+
+  // Fetch full records
+  const placeholders = related.map(() => '?').join(',')
+  const { results } = await c.env.DB.prepare(
+    `SELECT id, content, type, created_at FROM thoughts WHERE id IN (${placeholders}) AND deleted_at IS NULL`
+  ).bind(...related.map(r => r.id)).all()
+
+  const { results: decResults } = await c.env.DB.prepare(
+    `SELECT id, title, chosen, created_at FROM decisions WHERE id IN (${placeholders}) AND deleted_at IS NULL`
+  ).bind(...related.map(r => r.id)).all()
+
+  // Merge and add scores
+  const scoreMap = new Map(related.map(r => [r.id, r.score]))
+  const merged = [
+    ...results.map(r => ({ id: r.id as string, content: r.content as string, type: r.type as string, created_at: r.created_at as string, similarity: scoreMap.get(r.id as string) ?? 0 })),
+    ...decResults.map(d => ({ id: d.id as string, content: d.title as string, type: 'decision', created_at: d.created_at as string, similarity: scoreMap.get(d.id as string) ?? 0 })),
+  ].sort((a, b) => b.similarity - a.similarity)
+
+  return c.json(merged)
 })
 
 export { app as decisionRoutes }
