@@ -11,6 +11,36 @@ app.get('/', async (c) => {
   const user = c.get('user')
   const url = new URL(c.req.url)
 
+  const teamId = url.searchParams.get('team_id')
+
+  // Team-scoped query: return decisions from all team members
+  if (teamId) {
+    const member = await q.getTeamMember(c.env.DB, teamId, user.id)
+    if (!member) return c.json({ error: 'Not a member of this team' }, 403)
+
+    const limit = parseInt(url.searchParams.get('limit') || '50')
+    const offset = parseInt(url.searchParams.get('offset') || '0')
+    const { results } = await c.env.DB.prepare(
+      `SELECT d.*, p.name as project_name, p.repo_url as project_repo_url,
+              u.name as user_name, u.avatar_url as user_avatar_url, u.github_username as user_github_username
+       FROM decisions d
+       JOIN team_members tm ON d.user_id = tm.user_id
+       LEFT JOIN projects p ON d.project_id = p.id
+       LEFT JOIN users u ON d.user_id = u.id
+       WHERE tm.team_id = ? AND d.deleted_at IS NULL
+       ORDER BY d.created_at DESC LIMIT ? OFFSET ?`
+    ).bind(teamId, limit, offset).all()
+
+    const transformed = results.map(r => ({
+      ...r,
+      tags: q.parseTags(r.tags as string | null),
+      options: q.parseJson(r.options as string | null),
+      projects: r.project_name ? { name: r.project_name, repo_url: r.project_repo_url } : undefined,
+      users: r.user_name ? { id: r.user_id, name: r.user_name, avatar_url: r.user_avatar_url, github_username: r.user_github_username } : undefined,
+    }))
+    return c.json(transformed)
+  }
+
   const opts: Parameters<typeof q.listDecisions>[2] = {
     withJoins: true,
     limit: parseInt(url.searchParams.get('limit') || '50'),

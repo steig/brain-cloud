@@ -209,4 +209,127 @@ app.post('/:id/invites', async (c) => {
   return c.json(invite, 201)
 })
 
+// GET /api/teams/:id/stats — team admin dashboard stats (admin/owner only)
+app.get('/:id/stats', async (c) => {
+  const user = c.get('user')
+  const teamId = c.req.param('id')
+
+  if (!await requireTeamRole(c.env.DB, teamId, user.id, ['owner', 'admin'])) {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
+  const db = c.env.DB
+
+  // Total members
+  const memberCount = await db.prepare(
+    'SELECT COUNT(*) as cnt FROM team_members WHERE team_id = ?'
+  ).bind(teamId).first<{ cnt: number }>()
+
+  // Aggregate counts across team
+  const thoughtCount = await db.prepare(
+    `SELECT COUNT(*) as cnt FROM thoughts t
+     JOIN team_members tm ON t.user_id = tm.user_id
+     WHERE tm.team_id = ? AND t.deleted_at IS NULL`
+  ).bind(teamId).first<{ cnt: number }>()
+
+  const decisionCount = await db.prepare(
+    `SELECT COUNT(*) as cnt FROM decisions d
+     JOIN team_members tm ON d.user_id = tm.user_id
+     WHERE tm.team_id = ? AND d.deleted_at IS NULL`
+  ).bind(teamId).first<{ cnt: number }>()
+
+  const sessionCount = await db.prepare(
+    `SELECT COUNT(*) as cnt FROM sessions s
+     JOIN team_members tm ON s.user_id = tm.user_id
+     WHERE tm.team_id = ?`
+  ).bind(teamId).first<{ cnt: number }>()
+
+  // Per-member activity
+  const { results: memberActivity } = await db.prepare(
+    `SELECT
+       u.id as user_id,
+       u.name,
+       u.avatar_url,
+       tm.role,
+       (SELECT COUNT(*) FROM thoughts WHERE user_id = u.id AND deleted_at IS NULL) as thoughts,
+       (SELECT COUNT(*) FROM decisions WHERE user_id = u.id AND deleted_at IS NULL) as decisions,
+       (SELECT COUNT(*) FROM sessions WHERE user_id = u.id) as sessions,
+       COALESCE(
+         (SELECT MAX(created_at) FROM thoughts WHERE user_id = u.id AND deleted_at IS NULL),
+         (SELECT MAX(started_at) FROM sessions WHERE user_id = u.id),
+         tm.joined_at
+       ) as last_active
+     FROM team_members tm
+     JOIN users u ON u.id = tm.user_id
+     WHERE tm.team_id = ?
+     ORDER BY last_active DESC`
+  ).bind(teamId).all()
+
+  return c.json({
+    members: memberCount?.cnt ?? 0,
+    thoughts: thoughtCount?.cnt ?? 0,
+    decisions: decisionCount?.cnt ?? 0,
+    sessions: sessionCount?.cnt ?? 0,
+    member_activity: memberActivity,
+  })
+})
+
+// GET /api/teams/:id/feed — unified activity feed for workspace overview
+app.get('/:id/feed', async (c) => {
+  const user = c.get('user')
+  const teamId = c.req.param('id')
+  const url = new URL(c.req.url)
+  const limit = parseInt(url.searchParams.get('limit') || '50')
+
+  // Must be a member to view
+  const member = await q.getTeamMember(c.env.DB, teamId, user.id)
+  if (!member) return c.json({ error: 'Team not found' }, 404)
+
+  const db = c.env.DB
+
+  // Fetch recent thoughts, decisions, sessions from all team members and unify
+  const { results: thoughts } = await db.prepare(
+    `SELECT t.id, 'thought' as type, t.content, NULL as title, t.type as thought_type,
+            t.tags, t.created_at, u.name as user_name, u.avatar_url as user_avatar
+     FROM thoughts t
+     JOIN team_members tm ON t.user_id = tm.user_id
+     JOIN users u ON t.user_id = u.id
+     WHERE tm.team_id = ? AND t.deleted_at IS NULL
+     ORDER BY t.created_at DESC LIMIT ?`
+  ).bind(teamId, limit).all()
+
+  const { results: decisions } = await db.prepare(
+    `SELECT d.id, 'decision' as type, NULL as content, d.title, NULL as thought_type,
+            d.tags, d.created_at, u.name as user_name, u.avatar_url as user_avatar
+     FROM decisions d
+     JOIN team_members tm ON d.user_id = tm.user_id
+     JOIN users u ON d.user_id = u.id
+     WHERE tm.team_id = ? AND d.deleted_at IS NULL
+     ORDER BY d.created_at DESC LIMIT ?`
+  ).bind(teamId, limit).all()
+
+  const { results: sessions } = await db.prepare(
+    `SELECT s.id, 'session' as type, s.summary as content, NULL as title, NULL as thought_type,
+            NULL as tags, s.started_at as created_at, u.name as user_name, u.avatar_url as user_avatar
+     FROM sessions s
+     JOIN team_members tm ON s.user_id = tm.user_id
+     JOIN users u ON s.user_id = u.id
+     WHERE tm.team_id = ?
+     ORDER BY s.started_at DESC LIMIT ?`
+  ).bind(teamId, limit).all()
+
+  // Merge, sort, limit
+  type FeedItem = Record<string, unknown> & { created_at: string; tags?: string[] | string | null }
+  const allItems: FeedItem[] = [...thoughts, ...decisions, ...sessions] as FeedItem[]
+  const feed = allItems
+    .map(item => ({
+      ...item,
+      tags: item.tags ? q.parseTags(item.tags as string) : undefined,
+    }))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, limit)
+
+  return c.json(feed)
+})
+
 export { app as teamRoutes }
