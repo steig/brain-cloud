@@ -1,7 +1,9 @@
-import { Brain, Github } from "lucide-react";
+import { Github } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrainCloudLogo } from "@/components/brand/logo";
+import { MARKETING_URL } from "@/lib/config";
 
 const errorMessages: Record<string, string> = {
   invalid_state: "Authentication failed (state mismatch). Please try again.",
@@ -14,11 +16,11 @@ export function LoginPage() {
   const error = params.get("error");
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary">
-            <Brain className="h-6 w-6 text-primary-foreground" />
+          <div className="mx-auto mb-2">
+            <BrainCloudLogo size={48} className="text-primary" />
           </div>
           <CardTitle className="text-2xl">Brain Cloud</CardTitle>
           <CardDescription>Sign in to your knowledge dashboard</CardDescription>
@@ -48,6 +50,12 @@ export function LoginPage() {
           </Button>
         </CardContent>
       </Card>
+      <a
+        href={MARKETING_URL}
+        className="mt-4 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        &larr; Back to home
+      </a>
     </div>
   );
 }

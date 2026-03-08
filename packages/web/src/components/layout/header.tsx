@@ -1,6 +1,5 @@
 import { useNavigate, NavLink } from "react-router-dom";
 import {
-  Brain,
   LayoutDashboard,
   Lightbulb,
   GitFork,
@@ -10,6 +9,7 @@ import {
   LogOut,
   Menu,
 } from "lucide-react";
+import { BrainCloudLogo } from "@/components/brand/logo";
 import { useUser } from "@/lib/queries";
 import { auth } from "@/lib/api";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 const mobileNavItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/thoughts", icon: Lightbulb, label: "Thoughts" },
   { to: "/decisions", icon: GitFork, label: "Decisions" },
   { to: "/sessions", icon: Timer, label: "Sessions" },
@@ -51,8 +51,9 @@ export function Header() {
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(!mobileOpen)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <Brain className="h-5 w-5" />
-          <span className="font-semibold">Brain Cloud</span>
+          <NavLink to="/dashboard">
+            <BrainCloudLogo variant="full" size={20} />
+          </NavLink>
         </div>
         <div className="hidden md:block" />
         <DropdownMenu>
@@ -94,7 +95,6 @@ export function Header() {
             <NavLink
               key={to}
               to={to}
-              end={to === "/"}
               onClick={() => setMobileOpen(false)}
               className={({ isActive }) =>
                 cn(
