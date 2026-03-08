@@ -2,6 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useUser } from "@/lib/queries";
 import { useDemo } from "@/lib/demo-context";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WaitlistPage } from "./waitlist-page";
 
 export function AuthGuard() {
   const { isDemo } = useDemo();
@@ -26,6 +27,10 @@ export function AuthGuard() {
 
   if (isError || !user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!user.approved_at) {
+    return <WaitlistPage user={user} />;
   }
 
   return <Outlet />;

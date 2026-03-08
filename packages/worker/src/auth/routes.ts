@@ -404,7 +404,7 @@ auth.get('/me', async (c) => {
     }
 
     const user = await c.env.DB.prepare(
-      'SELECT id, name, email, avatar_url, system_role, is_active, api_key IS NOT NULL as has_api_key FROM users WHERE id = ? AND is_active = 1'
+      'SELECT id, name, email, avatar_url, system_role, approved_at, is_active, api_key IS NOT NULL as has_api_key FROM users WHERE id = ? AND is_active = 1'
     ).bind(payload.sub).first()
 
     if (!user) {
