@@ -99,6 +99,12 @@ export const api = {
     }),
 };
 
+// Related entries (vector similarity)
+export const related = {
+  forThought: (id: string) => api.get<RelatedEntry[]>(`/api/thoughts/${id}/related`),
+  forDecision: (id: string) => api.get<RelatedEntry[]>(`/api/decisions/${id}/related`),
+};
+
 // Account deletion (GDPR right-to-erasure)
 export async function deleteAccount(): Promise<void> {
   guardDemo();
@@ -357,6 +363,15 @@ export interface LearningWeek {
   goal_rate: number | null;
 }
 
+export interface RelatedEntry {
+  id: string;
+  content?: string;
+  title?: string;
+  type: string;
+  created_at: string;
+  similarity: number;
+}
+
 export interface TimelineEntry {
   type: "thought" | "decision" | "session";
   id: string;
@@ -478,3 +493,34 @@ export const github = {
     return api.get<GitHubActivity[]>(`/api/github/activity?${sp}`);
   },
 };
+
+// Cross-project insights
+export interface CrossProjectInsights {
+  period_days: number;
+  decision_patterns: Array<{
+    title: string;
+    count: number;
+    projects: string;
+    choices: string;
+  }>;
+  common_blockers: Array<{
+    content: string;
+    count: number;
+    projects: string;
+  }>;
+  sentiment_trends: Array<{
+    target_name: string;
+    target_type: string;
+    feeling: string;
+    count: number;
+    avg_intensity: number;
+    projects: string;
+  }>;
+  project_activity: Array<{
+    name: string;
+    id: string;
+    thoughts: number;
+    decisions: number;
+    sessions: number;
+  }>;
+}

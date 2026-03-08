@@ -9,6 +9,7 @@ import {
   auth,
   deleteAccount,
   github,
+  related,
   teams as teamsApi,
   type AuthUser,
   type ApiKey,
@@ -27,10 +28,12 @@ import {
   type LearningWeek,
   type GitHubRepo,
   type GitHubActivity,
+  type RelatedEntry,
   type Team,
   type TeamDetail,
   type TeamInvite,
   type Project,
+  type CrossProjectInsights,
 } from "./api";
 
 // Auth
@@ -394,6 +397,23 @@ export function useGitHubActivity(params?: {
   });
 }
 
+// Related entries (vector similarity)
+export function useRelatedThoughts(id: string | undefined) {
+  return useQuery({
+    queryKey: ["thoughts", id, "related"],
+    queryFn: () => related.forThought(id!),
+    enabled: !!id,
+  });
+}
+
+export function useRelatedDecisions(id: string | undefined) {
+  return useQuery({
+    queryKey: ["decisions", id, "related"],
+    queryFn: () => related.forDecision(id!),
+    enabled: !!id,
+  });
+}
+
 // Teams
 export function useTeams() {
   return useQuery({
@@ -468,5 +488,13 @@ export function useCancelTeamInvite() {
     mutationFn: ({ teamId, inviteId }: { teamId: string; inviteId: string }) =>
       teamsApi.cancelInvite(teamId, inviteId),
     onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ["team-invites", vars.teamId] }),
+  });
+}
+
+// Cross-project insights
+export function useCrossProjectInsights(days: number = 30) {
+  return useQuery({
+    queryKey: ["cross-project-insights", days],
+    queryFn: () => api.get<CrossProjectInsights>(`/api/insights/cross-project?days=${days}`),
   });
 }

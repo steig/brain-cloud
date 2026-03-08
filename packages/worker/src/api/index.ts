@@ -11,6 +11,9 @@ import { handoffRoutes } from './handoffs'
 import { teamRoutes } from './teams'
 import { exportRoutes } from './export'
 import { githubRoutes } from './github'
+import { backfillRoutes } from './backfill'
+import { askRoutes } from './ask'
+import { insightsRoutes } from './insights'
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -28,5 +31,8 @@ api.route('/teams', teamRoutes)
 api.route('/rpc', analyticsRoutes)
 api.route('/export', exportRoutes)
 api.route('/github', githubRoutes)
+api.route('/backfill', backfillRoutes)
+api.route('/ask', askRoutes)
+api.route('/insights', insightsRoutes)
 
 export { api as apiRoutes }
