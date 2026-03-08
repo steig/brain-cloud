@@ -5,10 +5,18 @@ import rehypeRaw from "rehype-raw";
 import mermaid from "mermaid";
 import { cn } from "@/lib/utils";
 
+function getMermaidTheme() {
+  return document.documentElement.classList.contains("dark") ? "dark" : "neutral";
+}
+
 mermaid.initialize({
   startOnLoad: false,
-  theme: "dark",
+  theme: getMermaidTheme(),
   securityLevel: "loose",
+  themeVariables: {
+    fontFamily: "ui-sans-serif, system-ui, sans-serif",
+    fontSize: "14px",
+  },
 });
 
 function MermaidBlock({ code }: { code: string }) {
@@ -16,6 +24,16 @@ function MermaidBlock({ code }: { code: string }) {
 
   useEffect(() => {
     if (!ref.current) return;
+    // Re-init with correct theme before rendering
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: getMermaidTheme(),
+      securityLevel: "loose",
+      themeVariables: {
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        fontSize: "14px",
+      },
+    });
     const id = `mermaid-${Math.random().toString(36).slice(2, 9)}`;
     mermaid
       .render(id, code)
@@ -27,7 +45,12 @@ function MermaidBlock({ code }: { code: string }) {
       });
   }, [code]);
 
-  return <div ref={ref} className="my-4 flex justify-center" />;
+  return (
+    <div
+      ref={ref}
+      className="my-4 flex justify-center rounded-lg border border-border/40 bg-card/50 p-4 overflow-x-auto"
+    />
+  );
 }
 
 interface MarkdownProps {

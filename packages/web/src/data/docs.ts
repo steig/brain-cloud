@@ -43,11 +43,11 @@ Brain Cloud fixes this. It gives your AI a persistent memory — so when you sta
 Brain Cloud runs as an [MCP server](https://modelcontextprotocol.io) — a standard protocol that lets AI assistants use external tools. You add it to Claude Code or Claude Desktop, and Claude automatically calls Brain Cloud to store and retrieve context during conversations.
 
 \`\`\`mermaid
-graph LR
-    A[Claude Code / Desktop] -->|MCP Protocol| B[Brain Cloud]
-    B --> C[(Your Brain)]
-    B --> D[AI Coaching]
-    C -->|Next session| A
+flowchart LR
+    A["🤖 Claude"] -- "MCP" --> B["☁️ Brain Cloud"]
+    B -- "Store" --> C[("💾 Memory")]
+    B -- "Analyze" --> D["📊 Insights"]
+    C -- "Recall" --> A
 \`\`\`
 
 There's nothing for you to do manually — Claude handles the logging. You just work normally, and your AI gets smarter over time.`,
@@ -158,12 +158,12 @@ Sessions give your AI a sense of *continuity*. Without them, every conversation 
 ## The Lifecycle
 
 \`\`\`mermaid
-graph TD
-    A[brain_session_start] -->|Returns recent context| B[You work normally]
-    B --> C[Claude captures decisions & insights]
-    C --> D[brain_session_end]
-    D -->|Summary stored| E[Available in next session]
-    E --> A
+flowchart TD
+    A["▶️ Session Start"] -->|"Context restored"| B["💻 You Work"]
+    B --> C["🧠 Claude Captures"]
+    C --> D["⏹️ Session End"]
+    D -->|"Summary saved"| E["📋 Next Session"]
+    E -->|"Feeds into"| A
 \`\`\`
 
 **Start** → Claude calls \`brain_session_start\` with your project name and goals. It gets back your recent thoughts, decisions, blockers, and last session's summary.
@@ -196,11 +196,10 @@ Not every choice needs recording. Focus on decisions where:
 ## The Decision Lifecycle
 
 \`\`\`mermaid
-graph LR
-    A[Make a choice] -->|brain_decide| B[Decision recorded]
-    B -->|Weeks/months later| C[brain_decision_review]
-    C --> D[Did it work out?]
-    D -->|Over time| E[brain_decision_accuracy]
+flowchart LR
+    A["⚖️ Choose"] -->|"Record"| B["📝 Decision"]
+    B -->|"Review later"| C["🔍 Review"]
+    C -->|"Rate outcome"| D["📈 Accuracy"]
 \`\`\`
 
 **Record** → When you choose between approaches, Claude logs the options, your choice, and your reasoning.
@@ -226,14 +225,14 @@ Handoffs are like leaving a sticky note for yourself (or a teammate) in the othe
 
 \`\`\`mermaid
 sequenceDiagram
-    participant A as Backend Project
-    participant B as Brain Cloud
-    participant C as Frontend Project
-    A->>B: brain_handoff("frontend-app", "API now requires Bearer token")
-    Note over B: Handoff stored
-    C->>B: brain_session_start(project: "frontend-app")
-    B-->>C: "You have a pending handoff from backend"
-    C->>B: brain_handoff_claim("Updating API client")
+    participant BE as 🔧 Backend
+    participant BC as ☁️ Brain Cloud
+    participant FE as 🎨 Frontend
+    BE->>BC: Handoff: "API requires Bearer token"
+    Note over BC: Stored with priority
+    FE->>BC: Start session
+    BC-->>FE: Pending handoff from Backend
+    FE->>BC: Claim handoff
 \`\`\`
 
 When you start a session in the target project, Brain Cloud surfaces any pending handoffs. No Slack message to forget, no TODO that gets lost — it's right there when Claude picks up the context.
