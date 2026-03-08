@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Thought } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
+import { Markdown } from "@/components/shared/markdown";
 
 const typeColors: Record<string, string> = {
   note: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -59,7 +60,7 @@ export function ThoughtList({ thoughts, isLoading, onDelete }: ThoughtListProps)
                     {timeAgo(thought.created_at)}
                   </span>
                 </div>
-                <p className="text-sm whitespace-pre-wrap">{thought.content}</p>
+                <Markdown content={thought.content} compact />
                 {thought.tags && thought.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
                     {thought.tags.map((tag) => (

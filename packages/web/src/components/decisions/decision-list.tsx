@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, CheckCircle2, Circle, AlertCircle } from "lucid
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/shared/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Decision } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
@@ -97,7 +98,7 @@ export function DecisionList({ decisions, isLoading }: DecisionListProps) {
                 {decision.context && (
                   <div className="mb-3">
                     <p className="text-xs font-medium text-muted-foreground mb-1">Context</p>
-                    <p className="text-sm">{decision.context}</p>
+                    <Markdown content={decision.context} compact />
                   </div>
                 )}
 
@@ -136,14 +137,14 @@ export function DecisionList({ decisions, isLoading }: DecisionListProps) {
                 {decision.rationale && (
                   <div className="mb-3">
                     <p className="text-xs font-medium text-muted-foreground mb-1">Rationale</p>
-                    <p className="text-sm">{decision.rationale}</p>
+                    <Markdown content={decision.rationale} compact />
                   </div>
                 )}
 
                 {decision.outcome && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Outcome</p>
-                    <p className="text-sm">{decision.outcome}</p>
+                    <Markdown content={decision.outcome} compact />
                   </div>
                 )}
               </CardContent>
