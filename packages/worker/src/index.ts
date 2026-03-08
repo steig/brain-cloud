@@ -15,6 +15,7 @@ import { apiRateLimiter, aiRateLimiter, authRateLimiter } from './middleware/rat
 import { handleRetention } from './retention'
 import { docsRoutes } from './api/docs'
 import { analyticsTrackRoutes } from './api/analytics-track'
+import { installAssetRoutes } from './api/install-assets'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -46,6 +47,9 @@ app.route('/docs', docsRoutes)
 
 // Analytics tracking (public, no auth — before auth middleware)
 app.route('/t', analyticsTrackRoutes)
+
+// Install assets (public, no auth — hooks, commands, manifest for CLI installer)
+app.route('/install', installAssetRoutes)
 
 // API routes (require auth + scope enforcement)
 app.use('/api/*', authMiddleware)

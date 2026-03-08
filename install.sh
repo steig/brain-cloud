@@ -7,28 +7,52 @@ set -euo pipefail
 #   BRAIN_API_KEY="xxx" bash <(curl -fsSL https://dash.brain-ai.dev/install.sh)
 #   bash install.sh --dry-run
 #   bash install.sh --uninstall
+#   bash install.sh --hooks-only
+#   bash install.sh --commands-only
+#   bash install.sh --list
 
-VERSION="2.0.0"
+VERSION="3.0.0"
 BRAIN_SERVER_URL="${BRAIN_SERVER_URL:-https://dash.brain-ai.dev}"
 
 # ── Flags ─────────────────────────────────────────────────────────────
 DRY_RUN=false
 UNINSTALL=false
 INTERACTIVE=true
+NO_HOOKS=false
+NO_COMMANDS=false
+MINIMAL=false
+HOOKS_ONLY=false
+COMMANDS_ONLY=false
+FORCE=false
+LIST_MODE=false
 
 for arg in "$@"; do
   case "$arg" in
-    --dry-run)   DRY_RUN=true ;;
-    --uninstall) UNINSTALL=true ;;
+    --dry-run)       DRY_RUN=true ;;
+    --uninstall)     UNINSTALL=true ;;
+    --no-hooks)      NO_HOOKS=true ;;
+    --no-commands)   NO_COMMANDS=true ;;
+    --minimal)       MINIMAL=true ;;
+    --hooks-only)    HOOKS_ONLY=true ;;
+    --commands-only) COMMANDS_ONLY=true ;;
+    --force)         FORCE=true ;;
+    --list)          LIST_MODE=true; DRY_RUN=true ;;
     --help|-h)
       echo "Brain Cloud installer v${VERSION}"
       echo ""
       echo "Usage: BRAIN_API_KEY=\"xxx\" bash install.sh [OPTIONS]"
       echo ""
       echo "Options:"
-      echo "  --dry-run     Show what would be changed without modifying files"
-      echo "  --uninstall   Remove brain-cloud from all detected MCP configs"
-      echo "  --help        Show this help"
+      echo "  --dry-run       Show what would be changed without modifying files"
+      echo "  --uninstall     Remove brain-cloud from all detected MCP configs"
+      echo "  --no-hooks      Skip hooks installation"
+      echo "  --no-commands   Skip slash commands installation"
+      echo "  --minimal       MCP config only (no directives, hooks, or commands)"
+      echo "  --hooks-only    Only install hooks + merge settings"
+      echo "  --commands-only Only install slash commands"
+      echo "  --force         Re-download even if version matches"
+      echo "  --list          Show what would be installed (dry-run variant)"
+      echo "  --help          Show this help"
       echo ""
       echo "Environment:"
       echo "  BRAIN_API_KEY      Required (unless --uninstall). Your API key."
@@ -38,6 +62,12 @@ for arg in "$@"; do
     *) echo "Unknown option: $arg (try --help)"; exit 1 ;;
   esac
 done
+
+# Validate flag combinations
+if $HOOKS_ONLY && $COMMANDS_ONLY; then
+  echo "Cannot use --hooks-only and --commands-only together (try --help)"
+  exit 1
+fi
 
 # Non-interactive when piped
 if [ ! -t 0 ]; then
@@ -122,6 +152,165 @@ else:
 with open('$output', 'w') as f: json.dump(cfg, f, indent=2); f.write('\n')
 " "$entry"
   fi
+}
+
+# ── Generic JSON read/merge (for settings.json, manifest.json) ───────
+# Usage: json_read <file> <js_expression>
+# Returns the result of evaluating js_expression against parsed JSON
+json_read() {
+  local file="$1" expr="$2"
+  if [ "$JSON_TOOL" = "node" ]; then
+    node -e "
+      const fs = require('fs');
+      let d = {};
+      try { d = JSON.parse(fs.readFileSync('$file', 'utf8')); } catch {}
+      const result = (function(data) { return $expr; })(d);
+      process.stdout.write(typeof result === 'object' ? JSON.stringify(result) : String(result ?? ''));
+    "
+  else
+    $JSON_TOOL -c "
+import json, sys
+d = {}
+try:
+    with open('$file') as f: d = json.load(f)
+except: pass
+result = (lambda data: $expr)(d)
+if isinstance(result, (dict, list)):
+    print(json.dumps(result), end='')
+else:
+    print('' if result is None else str(result), end='')
+"
+  fi
+}
+
+# Deep-merge settings JSON: merge server settings into local settings
+# Usage: settings_merge <input_file> <output_file> <server_settings_json>
+settings_merge() {
+  local input="$1" output="$2" server_json="$3"
+
+  if [ "$JSON_TOOL" = "node" ]; then
+    node -e "
+      const fs = require('fs');
+      let local = {};
+      try { local = JSON.parse(fs.readFileSync('$input', 'utf8')); } catch {}
+      const server = JSON.parse(process.argv[1]);
+
+      // Deep merge: server hooks into local hooks
+      if (server.hooks) {
+        if (!local.hooks) local.hooks = {};
+        for (const [event, handlers] of Object.entries(server.hooks)) {
+          if (!local.hooks[event]) local.hooks[event] = [];
+          // Add only handlers not already present (by matcher+command combo)
+          for (const handler of handlers) {
+            const key = JSON.stringify({ matcher: handler.matcher, command: handler.command });
+            const exists = local.hooks[event].some(h =>
+              JSON.stringify({ matcher: h.matcher, command: h.command }) === key
+            );
+            if (!exists) local.hooks[event].push(handler);
+          }
+        }
+      }
+
+      fs.writeFileSync('$output', JSON.stringify(local, null, 2) + '\n');
+    " "$server_json"
+  else
+    $JSON_TOOL -c "
+import json, sys
+local = {}
+try:
+    with open('$input') as f: local = json.load(f)
+except: pass
+server = json.loads(sys.argv[1])
+if 'hooks' in server:
+    if 'hooks' not in local: local['hooks'] = {}
+    for event, handlers in server['hooks'].items():
+        if event not in local['hooks']: local['hooks'][event] = []
+        for handler in handlers:
+            key = json.dumps({'matcher': handler.get('matcher'), 'command': handler.get('command')}, sort_keys=True)
+            exists = any(
+                json.dumps({'matcher': h.get('matcher'), 'command': h.get('command')}, sort_keys=True) == key
+                for h in local['hooks'][event]
+            )
+            if not exists:
+                local['hooks'][event].append(handler)
+with open('$output', 'w') as f: json.dump(local, f, indent=2); f.write('\n')
+" "$server_json"
+  fi
+}
+
+# Remove brain-cloud hook entries from settings.json
+# Usage: settings_remove_hooks <input_file> <output_file>
+settings_remove_hooks() {
+  local input="$1" output="$2"
+
+  if [ "$JSON_TOOL" = "node" ]; then
+    node -e "
+      const fs = require('fs');
+      let cfg = {};
+      try { cfg = JSON.parse(fs.readFileSync('$input', 'utf8')); } catch {}
+      if (cfg.hooks) {
+        for (const [event, handlers] of Object.entries(cfg.hooks)) {
+          cfg.hooks[event] = handlers.filter(h => {
+            const cmd = typeof h.command === 'string' ? h.command : (h.command || []).join(' ');
+            return !cmd.includes('brain-cloud');
+          });
+          if (cfg.hooks[event].length === 0) delete cfg.hooks[event];
+        }
+        if (Object.keys(cfg.hooks).length === 0) delete cfg.hooks;
+      }
+      fs.writeFileSync('$output', JSON.stringify(cfg, null, 2) + '\n');
+    "
+  else
+    $JSON_TOOL -c "
+import json
+cfg = {}
+try:
+    with open('$input') as f: cfg = json.load(f)
+except: pass
+if 'hooks' in cfg:
+    for event in list(cfg['hooks'].keys()):
+        cfg['hooks'][event] = [
+            h for h in cfg['hooks'][event]
+            if 'brain-cloud' not in (h.get('command', '') if isinstance(h.get('command'), str) else ' '.join(h.get('command', [])))
+        ]
+        if not cfg['hooks'][event]:
+            del cfg['hooks'][event]
+    if not cfg['hooks']:
+        del cfg['hooks']
+with open('$output', 'w') as f: json.dump(cfg, f, indent=2); f.write('\n')
+"
+  fi
+}
+
+# ── Checksum verification ─────────────────────────────────────────────
+sha256_cmd() {
+  if command -v sha256sum &>/dev/null; then
+    sha256sum "$1" | cut -d' ' -f1
+  elif command -v shasum &>/dev/null; then
+    shasum -a 256 "$1" | cut -d' ' -f1
+  else
+    warn "No sha256sum or shasum found — skipping checksum verification"
+    echo ""
+  fi
+}
+
+verify_checksum() {
+  local file="$1" expected="$2"
+  if [ -z "$expected" ]; then
+    return 0  # No checksum to verify
+  fi
+  local actual
+  actual=$(sha256_cmd "$file")
+  if [ -z "$actual" ]; then
+    return 0  # No checksum tool available
+  fi
+  if [ "$actual" != "$expected" ]; then
+    err "Checksum mismatch for $(basename "$file")"
+    err "  Expected: $expected"
+    err "  Got:      $actual"
+    return 1
+  fi
+  return 0
 }
 
 # ── Detect MCP clients ────────────────────────────────────────────────
@@ -329,6 +518,351 @@ restore_backups() {
   done
 }
 
+# ── Manifest & version management ────────────────────────────────────
+MANIFEST_FILE=""
+MANIFEST_VERSION=""
+
+download_manifest() {
+  info "Fetching install manifest..."
+  local tmp
+  tmp=$(mktemp)
+  TMPFILES+=("$tmp")
+
+  local http_code
+  http_code=$(curl -s -o "$tmp" -w "%{http_code}" \
+    --max-time 15 --retry 2 --retry-delay 2 \
+    "${BRAIN_SERVER_URL}/install/manifest.json" 2>/dev/null || echo "000")
+
+  if [ "$http_code" != "200" ]; then
+    err "Failed to fetch manifest (HTTP $http_code)"
+    err "Hooks and commands will be skipped."
+    return 1
+  fi
+
+  MANIFEST_FILE="$tmp"
+  MANIFEST_VERSION=$(json_read "$tmp" "data.version" 2>/dev/null || echo "")
+  if [ -n "$MANIFEST_VERSION" ]; then
+    ok "Manifest version: $MANIFEST_VERSION"
+  else
+    ok "Manifest downloaded"
+  fi
+  return 0
+}
+
+check_version() {
+  local version_file="$HOME/.claude/.brain-cloud-version"
+  if $FORCE; then
+    return 1  # Force re-download
+  fi
+  if [ ! -f "$version_file" ]; then
+    return 1  # No local version, need download
+  fi
+  local local_version
+  local_version=$(head -1 "$version_file" 2>/dev/null || echo "")
+  if [ -z "$MANIFEST_VERSION" ] || [ -z "$local_version" ]; then
+    return 1  # Can't compare, download
+  fi
+  if [ "$local_version" = "$MANIFEST_VERSION" ]; then
+    ok "Assets up to date (v${local_version})"
+    return 0  # Up to date
+  fi
+  info "Update available: v${local_version} -> v${MANIFEST_VERSION}"
+  return 1  # Need update
+}
+
+write_version() {
+  local version_file="$HOME/.claude/.brain-cloud-version"
+  if $DRY_RUN; then
+    dry "Would write version to $version_file"
+    return
+  fi
+  local ver="${MANIFEST_VERSION:-unknown}"
+  echo "$ver" > "$version_file"
+  echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> "$version_file"
+  ok "Version recorded: $ver"
+}
+
+# ── Download hooks ────────────────────────────────────────────────────
+download_hooks() {
+  if [ -z "$MANIFEST_FILE" ]; then
+    warn "No manifest — skipping hooks"
+    return
+  fi
+
+  info "Installing hooks..."
+  local hooks_dir="$HOME/.claude/hooks/brain-cloud"
+  local hooks_json
+  hooks_json=$(json_read "$MANIFEST_FILE" "JSON.stringify(data.hooks || [])" 2>/dev/null || echo "[]")
+
+  if [ "$hooks_json" = "[]" ] || [ -z "$hooks_json" ]; then
+    ok "No hooks in manifest"
+    return
+  fi
+
+  # Parse hooks list: array of {name, sha256}
+  local count
+  if [ "$JSON_TOOL" = "node" ]; then
+    count=$(node -e "console.log(JSON.parse(process.argv[1]).length)" "$hooks_json")
+  else
+    count=$($JSON_TOOL -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$hooks_json")
+  fi
+
+  if [ "$count" = "0" ]; then
+    ok "No hooks in manifest"
+    return
+  fi
+
+  if $DRY_RUN; then
+    dry "Would install $count hook(s) to $hooks_dir"
+    # List them
+    local i=0
+    while [ "$i" -lt "$count" ]; do
+      local hook_name
+      if [ "$JSON_TOOL" = "node" ]; then
+        hook_name=$(node -e "console.log(JSON.parse(process.argv[1])[$i].name)" "$hooks_json")
+      else
+        hook_name=$($JSON_TOOL -c "import json,sys; print(json.loads(sys.argv[1])[$i]['name'])" "$hooks_json")
+      fi
+      dry "  - $hook_name"
+      i=$((i + 1))
+    done
+    return
+  fi
+
+  mkdir -p "$hooks_dir"
+
+  local i=0
+  local installed=0
+  while [ "$i" -lt "$count" ]; do
+    local hook_name hook_sha
+    if [ "$JSON_TOOL" = "node" ]; then
+      hook_name=$(node -e "console.log(JSON.parse(process.argv[1])[$i].name)" "$hooks_json")
+      hook_sha=$(node -e "console.log(JSON.parse(process.argv[1])[$i].sha256 || '')" "$hooks_json")
+    else
+      hook_name=$($JSON_TOOL -c "import json,sys; print(json.loads(sys.argv[1])[$i]['name'])" "$hooks_json")
+      hook_sha=$($JSON_TOOL -c "import json,sys; print(json.loads(sys.argv[1])[$i].get('sha256',''))" "$hooks_json")
+    fi
+
+    local tmp
+    tmp=$(mktemp)
+    TMPFILES+=("$tmp")
+
+    local http_code
+    http_code=$(curl -s -o "$tmp" -w "%{http_code}" \
+      --max-time 15 --retry 2 --retry-delay 2 \
+      "${BRAIN_SERVER_URL}/install/hooks/${hook_name}" 2>/dev/null || echo "000")
+
+    if [ "$http_code" = "200" ]; then
+      if verify_checksum "$tmp" "$hook_sha"; then
+        mv "$tmp" "$hooks_dir/$hook_name"
+        chmod +x "$hooks_dir/$hook_name"
+        ok "Hook: $hook_name"
+        installed=$((installed + 1))
+      else
+        warn "Skipped $hook_name (checksum failed)"
+      fi
+    else
+      warn "Failed to download hook: $hook_name (HTTP $http_code)"
+    fi
+
+    i=$((i + 1))
+  done
+
+  ok "Installed $installed/$count hook(s)"
+}
+
+# ── Download commands ─────────────────────────────────────────────────
+download_commands() {
+  if [ -z "$MANIFEST_FILE" ]; then
+    warn "No manifest — skipping commands"
+    return
+  fi
+
+  info "Installing slash commands..."
+  local cmds_dir="$HOME/.claude/commands/brain-cloud"
+  local cmds_json
+  cmds_json=$(json_read "$MANIFEST_FILE" "JSON.stringify(data.commands || [])" 2>/dev/null || echo "[]")
+
+  if [ "$cmds_json" = "[]" ] || [ -z "$cmds_json" ]; then
+    ok "No commands in manifest"
+    return
+  fi
+
+  local count
+  if [ "$JSON_TOOL" = "node" ]; then
+    count=$(node -e "console.log(JSON.parse(process.argv[1]).length)" "$cmds_json")
+  else
+    count=$($JSON_TOOL -c "import json,sys; print(len(json.loads(sys.argv[1])))" "$cmds_json")
+  fi
+
+  if [ "$count" = "0" ]; then
+    ok "No commands in manifest"
+    return
+  fi
+
+  if $DRY_RUN; then
+    dry "Would install $count command(s) to $cmds_dir"
+    local i=0
+    while [ "$i" -lt "$count" ]; do
+      local cmd_name
+      if [ "$JSON_TOOL" = "node" ]; then
+        cmd_name=$(node -e "console.log(JSON.parse(process.argv[1])[$i].name)" "$cmds_json")
+      else
+        cmd_name=$($JSON_TOOL -c "import json,sys; print(json.loads(sys.argv[1])[$i]['name'])" "$cmds_json")
+      fi
+      dry "  - $cmd_name"
+      i=$((i + 1))
+    done
+    return
+  fi
+
+  mkdir -p "$cmds_dir"
+
+  local i=0
+  local installed=0
+  while [ "$i" -lt "$count" ]; do
+    local cmd_name cmd_sha
+    if [ "$JSON_TOOL" = "node" ]; then
+      cmd_name=$(node -e "console.log(JSON.parse(process.argv[1])[$i].name)" "$cmds_json")
+      cmd_sha=$(node -e "console.log(JSON.parse(process.argv[1])[$i].sha256 || '')" "$cmds_json")
+    else
+      cmd_name=$($JSON_TOOL -c "import json,sys; print(json.loads(sys.argv[1])[$i]['name'])" "$cmds_json")
+      cmd_sha=$($JSON_TOOL -c "import json,sys; print(json.loads(sys.argv[1])[$i].get('sha256',''))" "$cmds_json")
+    fi
+
+    local tmp
+    tmp=$(mktemp)
+    TMPFILES+=("$tmp")
+
+    local http_code
+    http_code=$(curl -s -o "$tmp" -w "%{http_code}" \
+      --max-time 15 --retry 2 --retry-delay 2 \
+      "${BRAIN_SERVER_URL}/install/commands/${cmd_name}" 2>/dev/null || echo "000")
+
+    if [ "$http_code" = "200" ]; then
+      if verify_checksum "$tmp" "$cmd_sha"; then
+        mv "$tmp" "$cmds_dir/$cmd_name"
+        ok "Command: $cmd_name"
+        installed=$((installed + 1))
+      else
+        warn "Skipped $cmd_name (checksum failed)"
+      fi
+    else
+      warn "Failed to download command: $cmd_name (HTTP $http_code)"
+    fi
+
+    i=$((i + 1))
+  done
+
+  ok "Installed $installed/$count command(s)"
+}
+
+# ── Merge settings ────────────────────────────────────────────────────
+merge_settings() {
+  if [ -z "$MANIFEST_FILE" ]; then
+    warn "No manifest — skipping settings merge"
+    return
+  fi
+
+  info "Merging hook settings..."
+  local settings_file="$HOME/.claude/settings.json"
+
+  # Fetch server settings
+  local tmp_settings
+  tmp_settings=$(mktemp)
+  TMPFILES+=("$tmp_settings")
+
+  local http_code
+  http_code=$(curl -s -o "$tmp_settings" -w "%{http_code}" \
+    --max-time 15 --retry 2 --retry-delay 2 \
+    "${BRAIN_SERVER_URL}/install/settings.json" 2>/dev/null || echo "000")
+
+  if [ "$http_code" != "200" ]; then
+    warn "Could not fetch settings template (HTTP $http_code) — skipping"
+    return
+  fi
+
+  local server_json
+  server_json=$(cat "$tmp_settings")
+
+  if $DRY_RUN; then
+    dry "Would merge hook settings into $settings_file"
+    return
+  fi
+
+  if [ -f "$settings_file" ]; then
+    backup_file "$settings_file"
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+  TMPFILES+=("$tmp")
+
+  if [ -f "$settings_file" ]; then
+    settings_merge "$settings_file" "$tmp" "$server_json"
+  else
+    mkdir -p "$(dirname "$settings_file")"
+    settings_merge "/dev/null" "$tmp" "$server_json"
+  fi
+  mv "$tmp" "$settings_file"
+  ok "Settings merged"
+}
+
+# ── Uninstall extras ──────────────────────────────────────────────────
+uninstall_extras() {
+  local hooks_dir="$HOME/.claude/hooks/brain-cloud"
+  local cmds_dir="$HOME/.claude/commands/brain-cloud"
+  local version_file="$HOME/.claude/.brain-cloud-version"
+  local settings_file="$HOME/.claude/settings.json"
+
+  # Remove hooks directory
+  if [ -d "$hooks_dir" ]; then
+    if $DRY_RUN; then
+      dry "Would remove $hooks_dir"
+    else
+      rm -rf "$hooks_dir"
+      ok "Removed hooks directory"
+    fi
+  fi
+
+  # Remove commands directory
+  if [ -d "$cmds_dir" ]; then
+    if $DRY_RUN; then
+      dry "Would remove $cmds_dir"
+    else
+      rm -rf "$cmds_dir"
+      ok "Removed commands directory"
+    fi
+  fi
+
+  # Remove brain-cloud entries from settings.json
+  if [ -f "$settings_file" ]; then
+    if grep -q 'brain-cloud' "$settings_file" 2>/dev/null; then
+      if $DRY_RUN; then
+        dry "Would remove brain-cloud hooks from $settings_file"
+      else
+        backup_file "$settings_file"
+        local tmp
+        tmp=$(mktemp)
+        TMPFILES+=("$tmp")
+        settings_remove_hooks "$settings_file" "$tmp"
+        mv "$tmp" "$settings_file"
+        ok "Removed brain-cloud hooks from settings.json"
+      fi
+    fi
+  fi
+
+  # Remove version file
+  if [ -f "$version_file" ]; then
+    if $DRY_RUN; then
+      dry "Would remove $version_file"
+    else
+      rm -f "$version_file"
+      ok "Removed version file"
+    fi
+  fi
+}
+
 # ══════════════════════════════════════════════════════════════════════
 # Main
 # ══════════════════════════════════════════════════════════════════════
@@ -337,6 +871,9 @@ echo ""
 echo -e "${BOLD}Brain Cloud Installer${NC} ${DIM}v${VERSION}${NC}"
 if $DRY_RUN; then
   echo -e "${DIM}(dry-run mode — no files will be modified)${NC}"
+fi
+if $LIST_MODE; then
+  echo -e "${DIM}(listing what would be installed)${NC}"
 fi
 echo ""
 
@@ -350,9 +887,37 @@ detect_json_tool
 info "Using $JSON_TOOL for JSON merging"
 echo ""
 
-# Get API key (skip for uninstall)
+# Determine what to install
+INSTALL_MCP=true
+INSTALL_DIRECTIVES=true
+INSTALL_HOOKS=true
+INSTALL_COMMANDS=true
+
+if $MINIMAL; then
+  INSTALL_DIRECTIVES=false
+  INSTALL_HOOKS=false
+  INSTALL_COMMANDS=false
+fi
+if $HOOKS_ONLY; then
+  INSTALL_MCP=false
+  INSTALL_DIRECTIVES=false
+  INSTALL_COMMANDS=false
+fi
+if $COMMANDS_ONLY; then
+  INSTALL_MCP=false
+  INSTALL_DIRECTIVES=false
+  INSTALL_HOOKS=false
+fi
+if $NO_HOOKS; then
+  INSTALL_HOOKS=false
+fi
+if $NO_COMMANDS; then
+  INSTALL_COMMANDS=false
+fi
+
+# Get API key (skip for uninstall and hooks/commands-only)
 API_KEY=""
-if ! $UNINSTALL; then
+if ! $UNINSTALL && $INSTALL_MCP; then
   if [ -n "${BRAIN_API_KEY:-}" ]; then
     API_KEY="$BRAIN_API_KEY"
     info "Using API key from \$BRAIN_API_KEY"
@@ -399,7 +964,7 @@ fi
 
 # Build MCP entry JSON
 MCP_ENTRY=""
-if ! $UNINSTALL; then
+if ! $UNINSTALL && $INSTALL_MCP; then
   MCP_ENTRY=$(cat <<EOF
 {"type":"streamable-http","url":"${BRAIN_SERVER_URL}/mcp","headers":{"X-API-Key":"${API_KEY}"}}
 EOF
@@ -409,24 +974,74 @@ fi
 # Detect clients
 detect_clients
 
-# Configure each client
-for i in "${!CLIENT_NAMES[@]}"; do
-  if $UNINSTALL; then
-    configure_client "${CLIENT_NAMES[$i]}" "${CLIENT_CONFIGS[$i]}" "uninstall"
-  else
-    configure_client "${CLIENT_NAMES[$i]}" "${CLIENT_CONFIGS[$i]}" "install" "$MCP_ENTRY"
+# ── Step 4: Download manifest + check version ────────────────────────
+NEED_ASSETS=false
+if ! $UNINSTALL && ($INSTALL_HOOKS || $INSTALL_COMMANDS); then
+  if download_manifest; then
+    if ! check_version; then
+      NEED_ASSETS=true
+    fi
   fi
-done
+  echo ""
+fi
 
-# CLAUDE.md directives
-add_claude_directives
+# ── Step 5: Configure clients (MCP config) ───────────────────────────
+if $INSTALL_MCP; then
+  for i in "${!CLIENT_NAMES[@]}"; do
+    if $UNINSTALL; then
+      configure_client "${CLIENT_NAMES[$i]}" "${CLIENT_CONFIGS[$i]}" "uninstall"
+    else
+      configure_client "${CLIENT_NAMES[$i]}" "${CLIENT_CONFIGS[$i]}" "install" "$MCP_ENTRY"
+    fi
+  done
+fi
+
+# ── Step 6: Write directives ─────────────────────────────────────────
+if $INSTALL_DIRECTIVES; then
+  add_claude_directives
+fi
+
+# ── Step 7: Download hooks ───────────────────────────────────────────
+if $INSTALL_HOOKS && ! $UNINSTALL; then
+  if $NEED_ASSETS || $FORCE; then
+    download_hooks
+  fi
+fi
+
+# ── Step 8: Download commands ────────────────────────────────────────
+if $INSTALL_COMMANDS && ! $UNINSTALL; then
+  if $NEED_ASSETS || $FORCE; then
+    download_commands
+  fi
+fi
+
+# ── Step 9: Merge settings ───────────────────────────────────────────
+if $INSTALL_HOOKS && ! $UNINSTALL; then
+  if $NEED_ASSETS || $FORCE; then
+    merge_settings
+  fi
+fi
+
+# ── Step 10: Write version ───────────────────────────────────────────
+if ! $UNINSTALL && ($INSTALL_HOOKS || $INSTALL_COMMANDS); then
+  if $NEED_ASSETS || $FORCE; then
+    write_version
+  fi
+fi
+
+# ── Uninstall extras ─────────────────────────────────────────────────
+if $UNINSTALL; then
+  uninstall_extras
+fi
 
 # Restore info for uninstall
 restore_backups
 
 # ── Done ──────────────────────────────────────────────────────────────
 echo ""
-if $DRY_RUN; then
+if $LIST_MODE; then
+  echo -e "${BOLD}Listing complete.${NC} Use without --list to install."
+elif $DRY_RUN; then
   echo -e "${BOLD}Dry run complete.${NC} Re-run without --dry-run to apply changes."
 elif $UNINSTALL; then
   echo -e "${GREEN}${BOLD}Uninstalled.${NC} Brain Cloud entries have been removed."
