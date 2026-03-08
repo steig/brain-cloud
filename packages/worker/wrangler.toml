@@ -24,6 +24,11 @@ migrations_dir = "../../migrations"
 [ai]
 binding = "AI"
 
+# Vectorize index for semantic search
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "brain-embeddings"
+
 # Environment variables (secrets set via `wrangler secret put`)
 [vars]
 JWT_ISSUER = "brain-ai.dev"
@@ -52,6 +57,10 @@ migrations_dir = "../../migrations"
 
 [env.staging.ai]
 binding = "AI"
+
+[[env.staging.vectorize]]
+binding = "VECTORIZE"
+index_name = "brain-embeddings-staging"
 
 # Production custom domain
 routes = [

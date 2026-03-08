@@ -6,6 +6,9 @@ export interface Env {
   // Workers AI
   AI: Ai
 
+  // Vectorize index for semantic search
+  VECTORIZE?: VectorizeIndex
+
   // Workers Static Assets (auto-injected by [assets] config)
   ASSETS?: Fetcher
 

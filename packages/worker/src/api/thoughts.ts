@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import * as q from '../db/queries'
 import { createThoughtSchema, updateThoughtSchema, validateBody } from './schemas'
+import { upsertEmbedding, deleteEmbedding } from '../db/vectorize'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -84,6 +85,15 @@ app.post('/', async (c) => {
 
   const thought = await q.createThought(c.env.DB, user.id, v.data)
 
+  c.executionCtx.waitUntil(
+    upsertEmbedding(c.env, thought.id, `${thought.content}`, {
+      type: 'thought',
+      userId: user.id,
+      projectId: thought.project_id ?? undefined,
+      createdAt: thought.created_at,
+    }).catch((e) => console.error('[vectorize] embedding failed:', e))
+  )
+
   if (prefer?.includes('return=representation')) {
     return c.json([{
       ...thought,
@@ -116,7 +126,11 @@ app.delete('/', async (c) => {
   const idParam = url.searchParams.get('id')
   if (!idParam?.startsWith('eq.')) return c.json({ error: 'Missing id filter' }, 400)
 
-  await q.deleteThought(c.env.DB, user.id, idParam.slice(3))
+  const thoughtId = idParam.slice(3)
+  await q.deleteThought(c.env.DB, user.id, thoughtId)
+  c.executionCtx.waitUntil(
+    deleteEmbedding(c.env, thoughtId).catch(() => {})
+  )
   return c.body(null, 204)
 })
 

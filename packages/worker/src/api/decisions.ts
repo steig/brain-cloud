@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import * as q from '../db/queries'
 import { createDecisionSchema, updateDecisionSchema, decisionReviewSchema, validateBody } from './schemas'
+import { upsertEmbedding, deleteEmbedding } from '../db/vectorize'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -64,6 +65,16 @@ app.post('/', async (c) => {
   const v = validateBody(createDecisionSchema, body)
   if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
   const decision = await q.createDecision(c.env.DB, user.id, v.data)
+
+  c.executionCtx.waitUntil(
+    upsertEmbedding(c.env, decision.id, `${decision.title} ${decision.chosen} ${decision.rationale}`, {
+      type: 'decision',
+      userId: user.id,
+      projectId: decision.project_id ?? undefined,
+      createdAt: decision.created_at,
+    }).catch((e) => console.error('[vectorize] embedding failed:', e))
+  )
+
   const prefer = c.req.header('Prefer')
   if (prefer?.includes('return=representation')) {
     return c.json([{
@@ -92,7 +103,11 @@ app.delete('/', async (c) => {
   const url = new URL(c.req.url)
   const idParam = url.searchParams.get('id')
   if (!idParam?.startsWith('eq.')) return c.json({ error: 'Missing id filter' }, 400)
-  await q.deleteDecision(c.env.DB, user.id, idParam.slice(3))
+  const decisionId = idParam.slice(3)
+  await q.deleteDecision(c.env.DB, user.id, decisionId)
+  c.executionCtx.waitUntil(
+    deleteEmbedding(c.env, decisionId).catch(() => {})
+  )
   return c.body(null, 204)
 })
 

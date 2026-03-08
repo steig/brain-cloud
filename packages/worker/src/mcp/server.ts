@@ -10,6 +10,7 @@ import * as q from '../db/queries'
 import { parsePeriod, formatDate } from './utils'
 import { scoreSession } from './scoring'
 import { getDecisionTemplate, listDecisionTemplates } from './templates'
+import { vectorSearch } from '../db/vectorize'
 
 // ═══════════════════════════════════════════════════════════════════
 // Types
@@ -508,8 +509,48 @@ async function handleToolCall(
 
     // ── Search ──
     case 'brain_search': {
-      const results = await q.searchBrain(db, userId, args.query as string, (args.limit as number) || 20)
-      return { results, search_type: 'keyword' }
+      const query = args.query as string
+      const limit = (args.limit as number) || 20
+
+      // FTS (keyword) search
+      const ftsResults = await q.searchBrain(db, userId, query, limit)
+      const ftsIds = new Set(ftsResults.map(r => r.id))
+
+      // Vector (semantic) search
+      const vectorResults = await vectorSearch(env, query, userId, { limit })
+      const vectorMap = new Map(vectorResults.map(r => [r.id, r.score]))
+
+      // Annotate FTS results with match_type
+      const annotatedFts = ftsResults.map(r => ({
+        ...r,
+        match_type: vectorMap.has(r.id) ? 'both' as const : 'keyword' as const,
+      }))
+
+      // Fetch full records for vector-only results
+      const vectorOnlyIds = vectorResults.filter(r => !ftsIds.has(r.id)).map(r => r.id)
+      let semanticResults: Array<{ id: string; type: string; content: string; created_at: string; match_type: 'semantic' }> = []
+
+      if (vectorOnlyIds.length) {
+        // Query D1 for vector-only IDs (thoughts + decisions)
+        const placeholders = vectorOnlyIds.map(() => '?').join(',')
+        const [thoughts, decisions] = await Promise.all([
+          db.prepare(
+            `SELECT id, 'thought' as type, content, created_at FROM thoughts
+             WHERE id IN (${placeholders}) AND user_id = ? AND deleted_at IS NULL`
+          ).bind(...vectorOnlyIds, userId).all(),
+          db.prepare(
+            `SELECT id, 'decision' as type, title as content, created_at FROM decisions
+             WHERE id IN (${placeholders}) AND user_id = ? AND deleted_at IS NULL`
+          ).bind(...vectorOnlyIds, userId).all(),
+        ])
+        const combined = [...thoughts.results, ...decisions.results] as Array<{ id: string; type: string; content: string; created_at: string }>
+        // Sort by vector score (higher first)
+        combined.sort((a, b) => (vectorMap.get(b.id) ?? 0) - (vectorMap.get(a.id) ?? 0))
+        semanticResults = combined.map(r => ({ ...r, match_type: 'semantic' as const }))
+      }
+
+      const results = [...annotatedFts, ...semanticResults].slice(0, limit)
+      return { results, search_type: vectorResults.length ? 'hybrid' : 'keyword' }
     }
 
     case 'brain_recall': {
@@ -517,7 +558,34 @@ async function handleToolCall(
       const limit = (args.limit as number) || 10
       const includeDetails = args.include_details !== false
 
-      const searchResults = await q.searchBrain(db, userId, query, limit)
+      // Hybrid search: FTS + vector
+      const ftsResults = await q.searchBrain(db, userId, query, limit)
+      const ftsIds = new Set(ftsResults.map(r => r.id))
+
+      const vectorResults = await vectorSearch(env, query, userId, { limit })
+      const vectorMap = new Map(vectorResults.map(r => [r.id, r.score]))
+
+      // Fetch vector-only results from D1
+      const vectorOnlyIds = vectorResults.filter(r => !ftsIds.has(r.id)).map(r => r.id)
+      let vectorOnlyRecords: Array<{ id: string; type: string; content: string; created_at: string }> = []
+
+      if (vectorOnlyIds.length) {
+        const placeholders = vectorOnlyIds.map(() => '?').join(',')
+        const [thoughts, decisions] = await Promise.all([
+          db.prepare(
+            `SELECT id, 'thought' as type, content, created_at FROM thoughts
+             WHERE id IN (${placeholders}) AND user_id = ? AND deleted_at IS NULL`
+          ).bind(...vectorOnlyIds, userId).all(),
+          db.prepare(
+            `SELECT id, 'decision' as type, title as content, created_at FROM decisions
+             WHERE id IN (${placeholders}) AND user_id = ? AND deleted_at IS NULL`
+          ).bind(...vectorOnlyIds, userId).all(),
+        ])
+        vectorOnlyRecords = [...thoughts.results, ...decisions.results] as typeof vectorOnlyRecords
+        vectorOnlyRecords.sort((a, b) => (vectorMap.get(b.id) ?? 0) - (vectorMap.get(a.id) ?? 0))
+      }
+
+      const searchResults = [...ftsResults, ...vectorOnlyRecords].slice(0, limit)
 
       if (!searchResults.length) {
         return { query, found: 0, message: `No memories found for "${query}".`, memories: [] }
@@ -535,17 +603,21 @@ async function handleToolCall(
       }
 
       const memories = searchResults.map(result => {
+        const matchType = ftsIds.has(result.id)
+          ? (vectorMap.has(result.id) ? 'both' : 'keyword')
+          : 'semantic'
+
         if (result.type === 'decision') {
           const full = decisions.find(d => d.id === result.id)
           return full ? {
             type: 'decision', date: formatDate(full.created_at),
-            summary: `DECISION: ${full.title}`,
+            summary: `DECISION: ${full.title}`, match_type: matchType,
             details: { context: full.context, chosen: full.chosen, rationale: full.rationale, tags: q.parseTags(full.tags) },
           } : {
-            type: 'decision', date: formatDate(result.created_at), summary: `DECISION: ${result.content}`,
+            type: 'decision', date: formatDate(result.created_at), summary: `DECISION: ${result.content}`, match_type: matchType,
           }
         }
-        return { type: 'thought', date: formatDate(result.created_at), summary: result.content }
+        return { type: 'thought', date: formatDate(result.created_at), summary: result.content, match_type: matchType }
       })
 
       const formatted = memories.map((m, i) => {
@@ -559,7 +631,8 @@ async function handleToolCall(
         return lines.join('\n')
       }).join('\n\n')
 
-      return { query, found: memories.length, search_type: 'keyword', formatted, memories }
+      const searchType = vectorResults.length ? 'hybrid' : 'keyword'
+      return { query, found: memories.length, search_type: searchType, formatted, memories }
     }
 
     // ── Timeline ──
