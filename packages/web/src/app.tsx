@@ -4,6 +4,7 @@ import { AuthGuard } from "@/components/auth/auth-guard";
 import { LoginPage } from "@/components/auth/login";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { CommandPalette } from "@/components/layout/command-palette";
 import { DashboardPage } from "@/components/dashboard/page";
 import { ThoughtsPage } from "@/components/thoughts/page";
 import { DecisionsPage } from "@/components/decisions/page";
@@ -23,24 +24,43 @@ const queryClient = new QueryClient({
   },
 });
 
+function PlaceholderPage({ title }: { title: string }) {
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold">{title}</h1>
+        <p className="mt-2 text-muted-foreground">Coming soon</p>
+      </div>
+    </div>
+  );
+}
+
 function AppLayout() {
   return (
     <div className="flex h-screen">
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header />
-        <main className="flex-1 overflow-auto p-4 md:p-6">
+        <main className="flex-1 overflow-auto p-4 pb-18 md:p-6 md:pb-6">
           <Routes>
             <Route index element={<DashboardPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="quick-entry" element={<PlaceholderPage title="Quick Entry" />} />
             <Route path="thoughts" element={<ThoughtsPage />} />
             <Route path="decisions" element={<DecisionsPage />} />
             <Route path="sessions" element={<SessionsPage />} />
             <Route path="handoffs" element={<HandoffsPage />} />
+            <Route path="insights" element={<PlaceholderPage title="Insights" />} />
+            <Route path="calendar" element={<PlaceholderPage title="Calendar" />} />
+            <Route path="teams" element={<PlaceholderPage title="Teams" />} />
+            <Route path="projects" element={<PlaceholderPage title="Projects" />} />
+            <Route path="github" element={<PlaceholderPage title="GitHub" />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Routes>
         </main>
       </div>
+      <CommandPalette />
     </div>
   );
 }
