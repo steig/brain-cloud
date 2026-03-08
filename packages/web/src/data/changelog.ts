@@ -8,6 +8,20 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.1.0',
+    date: '2026-03-08',
+    title: 'Project Tracking & Auto-Update',
+    description: 'All Brain MCP write tools now support project tracking, sessions return richer project-scoped context, and a new auto-update system keeps client config in sync.',
+    changes: [
+      { type: 'added', text: 'Project parameter on all write tools (thoughts, decisions, sessions, sentiment, DX events, conversations)' },
+      { type: 'added', text: 'Project-scoped session context with recent thoughts, decisions, blockers, and last session summary' },
+      { type: 'added', text: 'Pending handoffs surfaced on session start for target project' },
+      { type: 'added', text: 'brain_check_update tool for automatic client config updates' },
+      { type: 'improved', text: 'Session start returns decision rationale in context' },
+      { type: 'fixed', text: 'DX events now correctly store project_id' },
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2026-03-07',
     title: 'Brain Cloud Launch',

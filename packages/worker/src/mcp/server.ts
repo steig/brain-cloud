@@ -12,6 +12,8 @@ import { scoreSession } from './scoring'
 import { getDecisionTemplate, listDecisionTemplates } from './templates'
 import { vectorSearch } from '../db/vectorize'
 
+const SERVER_VERSION = '1.1.0'
+
 // ═══════════════════════════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════════════════════════
@@ -52,6 +54,44 @@ async function generateWithAI(env: Env, prompt: string): Promise<string> {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Project Resolution
+// ═══════════════════════════════════════════════════════════════════
+
+async function resolveProjectId(db: D1Database, projectName?: string, repoUrl?: string): Promise<string | null> {
+  if (!projectName) return null
+  return q.upsertProject(db, projectName, repoUrl)
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Config Bundle (for brain_check_update)
+// ═══════════════════════════════════════════════════════════════════
+
+const CONFIG_BUNDLE = {
+  mcp_json: {
+    mcpServers: {
+      brain: {
+        type: 'streamable-http',
+        url: 'https://brain.steig.co/mcp',
+        headers: {
+          'X-API-Key': '{{BRAIN_API_KEY}}',
+        },
+      },
+    },
+  },
+  claude_md_directives: `## Brain MCP
+<brain_version>${SERVER_VERSION}</brain_version>
+
+### Project Detection
+Every brain MCP call MUST include \`project\` parameter.
+Detect once at session start: \`basename $(git rev-parse --show-toplevel 2>/dev/null)\` or directory name.
+For brain_session_start, also pass \`repo_url\` from \`git remote get-url origin 2>/dev/null\`.
+
+### Auto-Update
+On brain_session_start, call brain_check_update with client_version from <brain_version> tag.
+If update_available, apply the config changes automatically (write .mcp.json, update CLAUDE.md directives).`,
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Tool Definitions
 // ═══════════════════════════════════════════════════════════════════
 
@@ -66,6 +106,7 @@ const TOOLS = [
         type: { type: 'string', enum: ['note', 'idea', 'question', 'todo', 'insight'], description: 'Type of thought (default: note)' },
         tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags' },
         context: { type: 'object', description: 'Optional context (file, line, function)' },
+        project: { type: 'string', description: 'Project name (git repo name or directory)' },
       },
       required: ['content'],
     },
@@ -92,6 +133,7 @@ const TOOLS = [
         rationale: { type: 'string', description: 'Why this option was chosen' },
         tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags' },
         outcome: { type: 'string', description: "What happened as a result (e.g., 'Implemented in abc123, PR #45')" },
+        project: { type: 'string', description: 'Project name (git repo name or directory)' },
       },
       required: ['title', 'chosen', 'rationale'],
     },
@@ -140,6 +182,8 @@ const TOOLS = [
       properties: {
         mood: { type: 'string', description: "How the session is starting (e.g., 'focused', 'exploratory', 'debugging')" },
         goals: { type: 'array', items: { type: 'string' }, description: 'What the user wants to accomplish' },
+        project: { type: 'string', description: 'Project name (git repo name or directory)' },
+        repo_url: { type: 'string', description: 'Git remote URL' },
       },
     },
   },
@@ -169,6 +213,7 @@ const TOOLS = [
         feeling: { type: 'string', enum: ['frustrated', 'confused', 'satisfied', 'excited', 'neutral', 'annoyed', 'impressed'], description: 'How you feel' },
         intensity: { type: 'number', minimum: 1, maximum: 5, description: 'Intensity (1-5)' },
         reason: { type: 'string', description: 'Why you feel this way' },
+        project: { type: 'string', description: 'Project name (git repo name or directory)' },
       },
       required: ['target_type', 'target_name', 'feeling'],
     },
@@ -186,6 +231,7 @@ const TOOLS = [
         tokens_out: { type: 'number', description: 'Output tokens generated' },
         success: { type: 'boolean', description: 'Whether it succeeded' },
         error_message: { type: 'string', description: 'Error message if failed' },
+        project: { type: 'string', description: 'Project name (git repo name or directory)' },
       },
       required: ['event_type'],
     },
@@ -341,6 +387,7 @@ const TOOLS = [
         session_id: { type: 'string' },
         tags: { type: 'array', items: { type: 'string' } },
         metadata: { type: 'object' },
+        project: { type: 'string', description: 'Project name (git repo name or directory)' },
       },
       required: ['prompt_text'],
     },
@@ -444,6 +491,17 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: 'brain_check_update',
+    description: 'Check for config updates. Returns latest client config if outdated.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        client_version: { type: 'string', description: 'Current client config version' },
+      },
+      required: ['client_version'],
+    },
+  },
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -462,17 +520,20 @@ async function handleToolCall(
   switch (name) {
     // ── Thoughts ──
     case 'brain_thought': {
+      const projectId = await resolveProjectId(db, args.project as string)
       const thought = await q.createThought(db, userId, {
         type: (args.type as string) || 'note',
         content: args.content as string,
         tags: (args.tags as string[]) || [],
         context: (args.context as Record<string, unknown>) || {},
+        project_id: projectId,
       })
       return { success: true, thought }
     }
 
     // ── Decisions ──
     case 'brain_decide': {
+      const projectId = await resolveProjectId(db, args.project as string)
       const decision = await q.createDecision(db, userId, {
         title: args.title as string,
         context: (args.context as string) || undefined,
@@ -481,6 +542,7 @@ async function handleToolCall(
         rationale: (args.rationale as string) || undefined,
         outcome: args.outcome as string | undefined,
         tags: (args.tags as string[]) || [],
+        project_id: projectId,
       })
       return { success: true, decision }
     }
@@ -646,28 +708,57 @@ async function handleToolCall(
 
     // ── Sessions ──
     case 'brain_session_start': {
+      const projectId = await resolveProjectId(db, args.project as string, args.repo_url as string)
       const session = await q.createSession(db, userId, {
         mood_start: args.mood as string,
         goals: (args.goals as string[]) || [],
         metadata: { started_by: 'claude-session' },
+        project_id: projectId,
       })
 
-      // Best-effort context injection
+      // Best-effort context injection — project-scoped when available
       let relatedContext: Record<string, unknown> = {}
       try {
-        const [recentDecisions, recentBlockers] = await Promise.all([
-          q.listDecisions(db, userId, { limit: 5, withJoins: false }),
-          q.listThoughts(db, userId, { type: 'todo', tagsContain: ['blocker'], limit: 3, withJoins: false }),
+        const scopeOpts = projectId ? { projectId } : {}
+        const [recentDecisions, recentThoughts, recentBlockers, lastSession] = await Promise.all([
+          q.listDecisions(db, userId, { ...scopeOpts, limit: 5, withJoins: false }),
+          q.listThoughts(db, userId, { ...scopeOpts, limit: 5, withJoins: false }),
+          q.listThoughts(db, userId, { ...scopeOpts, type: 'todo', tagsContain: ['blocker'], limit: 3, withJoins: false }),
+          q.listSessions(db, userId, { ...scopeOpts, limit: 1 }),
         ])
         if (recentDecisions.length) {
           relatedContext.recent_decisions = recentDecisions.map(d => ({
-            title: d.title, chosen: d.chosen, created_at: d.created_at,
+            title: d.title, chosen: d.chosen, rationale: d.rationale, created_at: d.created_at,
+          }))
+        }
+        if (recentThoughts.length) {
+          relatedContext.recent_thoughts = recentThoughts.map(t => ({
+            type: t.type, content: t.content, created_at: t.created_at,
           }))
         }
         if (recentBlockers.length) {
           relatedContext.recent_blockers = recentBlockers.map(b => ({
             content: b.content, created_at: b.created_at,
           }))
+        }
+        if (lastSession.length && lastSession[0].id !== session.id) {
+          const ls = lastSession[0]
+          relatedContext.last_session = {
+            summary: ls.summary, accomplishments: ls.accomplishments,
+            mood_end: ls.mood_end, ended_at: ls.ended_at,
+          }
+        }
+        // Pending handoffs to this project
+        if (args.project) {
+          const handoffs = await q.listHandoffs(db, userId, {
+            toProject: args.project as string, status: 'pending', limit: 5,
+          })
+          if (handoffs.length) {
+            relatedContext.pending_handoffs = handoffs.map(h => ({
+              id: h.id, from_project: h.from_project, message: h.message,
+              type: h.handoff_type, priority: h.priority, created_at: h.created_at,
+            }))
+          }
         }
       } catch { /* best-effort */ }
 
@@ -709,18 +800,21 @@ async function handleToolCall(
 
     // ── Sentiment ──
     case 'brain_sentiment': {
+      const projectId = await resolveProjectId(db, args.project as string)
       const sentiment = await q.createSentiment(db, userId, {
         target_type: args.target_type as string,
         target_name: args.target_name as string,
         feeling: args.feeling as string,
         intensity: (args.intensity as number) || 3,
         reason: args.reason as string,
+        project_id: projectId,
       })
       return { success: true, sentiment }
     }
 
     // ── DX ──
     case 'brain_dx_event': {
+      const projectId = await resolveProjectId(db, args.project as string)
       const event = await q.createDxEvent(db, userId, {
         event_type: args.event_type as string,
         command: args.command as string,
@@ -729,6 +823,7 @@ async function handleToolCall(
         tokens_out: args.tokens_out as number,
         success: args.success as boolean,
         error_message: args.error_message as string,
+        project_id: projectId,
       })
       return { success: true, event }
     }
@@ -752,6 +847,7 @@ async function handleToolCall(
 
     // ── Log Commit ──
     case 'brain_log_commit': {
+      const projectId = await resolveProjectId(db, args.project as string)
       const hash = args.hash as string
       const message = args.message as string
       const filesChanged = (args.files_changed as string[]) || []
@@ -776,6 +872,7 @@ async function handleToolCall(
       const thought = await q.createThought(db, userId, {
         type: 'note', content: lines.join('\n'), tags,
         context: { commit_hash: hash, files_changed: filesChanged, additions, deletions, author: args.author, branch: args.branch },
+        project_id: projectId,
       })
       return { success: true, thought }
     }
@@ -1049,6 +1146,7 @@ async function handleToolCall(
 
     // ── Conversation ──
     case 'brain_conversation': {
+      const projectId = await resolveProjectId(db, args.project as string)
       const result = await q.createConversation(db, userId, {
         session_id: args.session_id as string,
         prompt_text: args.prompt_text as string,
@@ -1061,6 +1159,7 @@ async function handleToolCall(
         quality_score: args.quality_score as number,
         tags: (args.tags as string[]) || [],
         metadata: (args.metadata as Record<string, unknown>) || {},
+        project_id: projectId,
       })
       return { success: true, conversation: result }
     }
@@ -1176,6 +1275,26 @@ async function handleToolCall(
       return { success: true, templates: listDecisionTemplates() }
     }
 
+    // ── Check Update ──
+    case 'brain_check_update': {
+      const clientVersion = args.client_version as string
+      if (clientVersion === SERVER_VERSION) {
+        return { server_version: SERVER_VERSION, update_available: false }
+      }
+      // NOTE: Update CHANGELOG entries when bumping SERVER_VERSION
+      return {
+        server_version: SERVER_VERSION,
+        update_available: true,
+        changelog: [
+          'Added project tracking to all write tools',
+          'Richer project-scoped session context',
+          'Auto-update system for client config',
+        ],
+        config: CONFIG_BUNDLE,
+        instructions: 'Update ~/.claude/.mcp.json (preserve your existing X-API-Key value) and add directives to project or global CLAUDE.md',
+      }
+    }
+
     default:
       throw new Error(`Unknown tool: ${name}`)
   }
@@ -1191,6 +1310,7 @@ const READ_ONLY_TOOLS = new Set([
   'brain_dx_summary', 'brain_handoffs', 'brain_coaching_insights',
   'brain_decision_accuracy', 'brain_cost_per_outcome', 'brain_prompt_quality',
   'brain_learning_curve', 'brain_score_session', 'brain_decision_templates',
+  'brain_check_update',
 ])
 
 // Scope-aware wrapper: checks tool permissions before dispatching
@@ -1233,7 +1353,7 @@ async function handleJsonRpc(
         result: {
           protocolVersion: '2025-03-26',
           capabilities: { tools: {} },
-          serverInfo: { name: 'brain-mcp', version: '1.0.0' },
+          serverInfo: { name: 'brain-mcp', version: SERVER_VERSION },
         },
         id: req.id!,
       }

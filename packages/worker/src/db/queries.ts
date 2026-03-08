@@ -652,6 +652,7 @@ export async function createDxEvent(
   db: D1Database, userId: string,
   input: {
     machine_id?: string
+    project_id?: string | null
     event_type: string
     command?: string
     duration_ms?: number
@@ -664,10 +665,10 @@ export async function createDxEvent(
 ): Promise<{ id: string }> {
   const id = crypto.randomUUID()
   await db.prepare(
-    `INSERT INTO dx_events (id, user_id, machine_id, event_type, command, duration_ms, tokens_in, tokens_out, success, error_message, ai_model, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    `INSERT INTO dx_events (id, user_id, machine_id, project_id, event_type, command, duration_ms, tokens_in, tokens_out, success, error_message, ai_model, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
   ).bind(
-    id, userId, input.machine_id ?? null, input.event_type,
+    id, userId, input.machine_id ?? null, input.project_id ?? null, input.event_type,
     input.command ?? null, input.duration_ms ?? null,
     input.tokens_in ?? null, input.tokens_out ?? null,
     input.success ?? true ? 1 : 0, input.error_message ?? null,
