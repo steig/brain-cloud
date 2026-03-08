@@ -30,9 +30,27 @@ GOOGLE_CALLBACK_URL = "https://brain-ai.dev/auth/google/callback"
 # Staging environment
 [env.staging]
 name = "brain-staging"
+
 [env.staging.vars]
 JWT_ISSUER = "staging.brain-ai.dev"
 FRONTEND_URL = "https://staging.brain-ai.dev"
+GITHUB_CALLBACK_URL = "https://staging.brain-ai.dev/auth/github/callback"
+GOOGLE_CALLBACK_URL = "https://staging.brain-ai.dev/auth/google/callback"
+
+# Staging needs its own D1 database — create with:
+# wrangler d1 create brain-db-staging
+# Then update the database_id below
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "brain-db-staging"
+database_id = "e6a305ce-82ec-43fd-bd92-5ad77c5d7d81"
+migrations_dir = "../../migrations"
+
+[env.staging.ai]
+binding = "AI"
 
 # Custom domain
-routes = [{ pattern = "brain-ai.dev", custom_domain = true }]
+routes = [
+  { pattern = "brain-ai.dev", custom_domain = true },
+  { pattern = "dash.brain-ai.dev/*", zone_name = "brain-ai.dev" },
+]
