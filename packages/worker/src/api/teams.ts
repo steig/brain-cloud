@@ -231,29 +231,26 @@ app.get('/:id/stats', async (c) => {
 
   const db = c.env.DB
 
-  // Total members
-  const memberCount = await db.prepare(
-    'SELECT COUNT(*) as cnt FROM team_members WHERE team_id = ?'
-  ).bind(teamId).first<{ cnt: number }>()
-
-  // Aggregate counts across team
-  const thoughtCount = await db.prepare(
-    `SELECT COUNT(*) as cnt FROM thoughts t
-     JOIN team_members tm ON t.user_id = tm.user_id
-     WHERE tm.team_id = ? AND t.deleted_at IS NULL`
-  ).bind(teamId).first<{ cnt: number }>()
-
-  const decisionCount = await db.prepare(
-    `SELECT COUNT(*) as cnt FROM decisions d
-     JOIN team_members tm ON d.user_id = tm.user_id
-     WHERE tm.team_id = ? AND d.deleted_at IS NULL`
-  ).bind(teamId).first<{ cnt: number }>()
-
-  const sessionCount = await db.prepare(
-    `SELECT COUNT(*) as cnt FROM sessions s
-     JOIN team_members tm ON s.user_id = tm.user_id
-     WHERE tm.team_id = ?`
-  ).bind(teamId).first<{ cnt: number }>()
+  // Parallel aggregate counts
+  const [memberCount, thoughtCount, decisionCount, sessionCount] = await Promise.all([
+    db.prepare('SELECT COUNT(*) as cnt FROM team_members WHERE team_id = ?')
+      .bind(teamId).first<{ cnt: number }>(),
+    db.prepare(
+      `SELECT COUNT(*) as cnt FROM thoughts t
+       JOIN team_members tm ON t.user_id = tm.user_id
+       WHERE tm.team_id = ? AND t.deleted_at IS NULL`
+    ).bind(teamId).first<{ cnt: number }>(),
+    db.prepare(
+      `SELECT COUNT(*) as cnt FROM decisions d
+       JOIN team_members tm ON d.user_id = tm.user_id
+       WHERE tm.team_id = ? AND d.deleted_at IS NULL`
+    ).bind(teamId).first<{ cnt: number }>(),
+    db.prepare(
+      `SELECT COUNT(*) as cnt FROM sessions s
+       JOIN team_members tm ON s.user_id = tm.user_id
+       WHERE tm.team_id = ?`
+    ).bind(teamId).first<{ cnt: number }>(),
+  ])
 
   // Per-member activity
   const { results: memberActivity } = await db.prepare(
@@ -298,47 +295,37 @@ app.get('/:id/feed', async (c) => {
 
   const db = c.env.DB
 
-  // Fetch recent thoughts, decisions, sessions from all team members and unify
-  const { results: thoughts } = await db.prepare(
-    `SELECT t.id, 'thought' as type, t.content, NULL as title, t.type as thought_type,
-            t.tags, t.created_at, u.name as user_name, u.avatar_url as user_avatar
-     FROM thoughts t
-     JOIN team_members tm ON t.user_id = tm.user_id
-     JOIN users u ON t.user_id = u.id
-     WHERE tm.team_id = ? AND t.deleted_at IS NULL
-     ORDER BY t.created_at DESC LIMIT ?`
-  ).bind(teamId, limit).all()
+  // Single UNION query sorted and limited at the DB level
+  const { results: rawFeed } = await db.prepare(
+    `SELECT * FROM (
+       SELECT t.id, 'thought' as type, t.content, NULL as title, t.type as thought_type,
+              t.tags, t.created_at, u.name as user_name, u.avatar_url as user_avatar
+       FROM thoughts t
+       JOIN team_members tm ON t.user_id = tm.user_id
+       JOIN users u ON t.user_id = u.id
+       WHERE tm.team_id = ? AND t.deleted_at IS NULL
+       UNION ALL
+       SELECT d.id, 'decision' as type, NULL as content, d.title, NULL as thought_type,
+              d.tags, d.created_at, u.name as user_name, u.avatar_url as user_avatar
+       FROM decisions d
+       JOIN team_members tm ON d.user_id = tm.user_id
+       JOIN users u ON d.user_id = u.id
+       WHERE tm.team_id = ? AND d.deleted_at IS NULL
+       UNION ALL
+       SELECT s.id, 'session' as type, s.summary as content, NULL as title, NULL as thought_type,
+              NULL as tags, s.started_at as created_at, u.name as user_name, u.avatar_url as user_avatar
+       FROM sessions s
+       JOIN team_members tm ON s.user_id = tm.user_id
+       JOIN users u ON s.user_id = u.id
+       WHERE tm.team_id = ?
+     ) ORDER BY created_at DESC LIMIT ?`
+  ).bind(teamId, teamId, teamId, limit).all()
 
-  const { results: decisions } = await db.prepare(
-    `SELECT d.id, 'decision' as type, NULL as content, d.title, NULL as thought_type,
-            d.tags, d.created_at, u.name as user_name, u.avatar_url as user_avatar
-     FROM decisions d
-     JOIN team_members tm ON d.user_id = tm.user_id
-     JOIN users u ON d.user_id = u.id
-     WHERE tm.team_id = ? AND d.deleted_at IS NULL
-     ORDER BY d.created_at DESC LIMIT ?`
-  ).bind(teamId, limit).all()
-
-  const { results: sessions } = await db.prepare(
-    `SELECT s.id, 'session' as type, s.summary as content, NULL as title, NULL as thought_type,
-            NULL as tags, s.started_at as created_at, u.name as user_name, u.avatar_url as user_avatar
-     FROM sessions s
-     JOIN team_members tm ON s.user_id = tm.user_id
-     JOIN users u ON s.user_id = u.id
-     WHERE tm.team_id = ?
-     ORDER BY s.started_at DESC LIMIT ?`
-  ).bind(teamId, limit).all()
-
-  // Merge, sort, limit
   type FeedItem = Record<string, unknown> & { created_at: string; tags?: string[] | string | null }
-  const allItems: FeedItem[] = [...thoughts, ...decisions, ...sessions] as FeedItem[]
-  const feed = allItems
-    .map(item => ({
-      ...item,
-      tags: item.tags ? q.parseTags(item.tags as string) : undefined,
-    }))
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, limit)
+  const feed = (rawFeed as FeedItem[]).map(item => ({
+    ...item,
+    tags: item.tags ? q.parseTags(item.tags as string) : undefined,
+  }))
 
   return c.json(feed)
 })

@@ -15,21 +15,7 @@ import {
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
 } from "@/lib/queries";
-import { cn } from "@/lib/utils";
-
-function formatRelativeTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHrs = Math.floor(diffMin / 60);
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  const diffDays = Math.floor(diffHrs / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return d.toLocaleDateString();
-}
+import { cn, timeAgo } from "@/lib/utils";
 
 export function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -114,7 +100,7 @@ export function NotificationBell() {
                     </span>
                   )}
                   <span className="text-[10px] text-muted-foreground">
-                    {formatRelativeTime(n.created_at)}
+                    {timeAgo(n.created_at)}
                   </span>
                 </DropdownMenuItem>
               );

@@ -528,7 +528,7 @@ export function useNotifications(params?: { unread?: boolean; limit?: number }) 
   return useQuery({
     queryKey: ["notifications", params],
     queryFn: () => notificationsApi.list(params),
-    refetchInterval: 30 * 1000, // Poll every 30s
+    refetchInterval: 60 * 1000, // Poll every 60s
   });
 }
 

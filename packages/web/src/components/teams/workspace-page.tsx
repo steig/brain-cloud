@@ -5,26 +5,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { timeAgo } from "@/lib/utils";
 import {
   ArrowLeft,
   Brain,
   GitFork,
   Timer,
 } from "lucide-react";
-
-function formatTime(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHrs = Math.floor(diffMin / 60);
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  const diffDays = Math.floor(diffHrs / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return d.toLocaleDateString();
-}
 
 const typeConfig = {
   thought: { icon: Brain, label: "Thought", color: "text-blue-500" },
@@ -111,7 +98,7 @@ export function TeamWorkspacePage() {
                           : config.label}
                       </Badge>
                       <span className="text-xs text-muted-foreground ml-auto">
-                        {formatTime(item.created_at)}
+                        {timeAgo(item.created_at)}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2">

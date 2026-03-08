@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { timeAgo } from "@/lib/utils";
 import {
   ArrowLeft,
   Brain,
@@ -12,17 +13,6 @@ import {
   Timer,
   Users,
 } from "lucide-react";
-
-function formatRelative(dateStr: string): string {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 30) return `${diffDays}d ago`;
-  return d.toLocaleDateString();
-}
 
 export function TeamAdminPage() {
   const { id } = useParams<{ id: string }>();
@@ -156,7 +146,7 @@ export function TeamAdminPage() {
                     <td className="py-3 text-right tabular-nums">{m.decisions}</td>
                     <td className="py-3 text-right tabular-nums">{m.sessions}</td>
                     <td className="py-3 text-right text-muted-foreground">
-                      {formatRelative(m.last_active)}
+                      {timeAgo(m.last_active)}
                     </td>
                   </tr>
                 ))}

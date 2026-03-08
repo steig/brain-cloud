@@ -1,17 +1,11 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { analyticsAdminRoutes } from './analytics-track'
+import { adminGuard } from '../middleware/admin-guard'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
-// Admin guard middleware
-app.use('*', async (c, next) => {
-  const user = c.get('user')
-  if (user.system_role !== 'admin' && user.system_role !== 'super_admin') {
-    return c.json({ error: 'Admin access required', code: 'FORBIDDEN' }, 403)
-  }
-  await next()
-})
+app.use('*', adminGuard)
 
 // GET /api/admin/stats — system dashboard stats
 app.get('/stats', async (c) => {
@@ -43,11 +37,14 @@ app.get('/stats', async (c) => {
   // Top users by activity
   const { results: topUsers } = await c.env.DB.prepare(`
     SELECT u.id, u.name, u.email, u.system_role, u.created_at,
-           (SELECT COUNT(*) FROM thoughts t WHERE t.user_id = u.id) as thought_count,
-           (SELECT COUNT(*) FROM decisions d WHERE d.user_id = u.id) as decision_count,
-           (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id) as session_count
+           COALESCE(tc.cnt, 0) as thought_count,
+           COALESCE(dc.cnt, 0) as decision_count,
+           COALESCE(sc.cnt, 0) as session_count
     FROM users u
-    ORDER BY thought_count + decision_count + session_count DESC
+    LEFT JOIN (SELECT user_id, COUNT(*) as cnt FROM thoughts GROUP BY user_id) tc ON tc.user_id = u.id
+    LEFT JOIN (SELECT user_id, COUNT(*) as cnt FROM decisions GROUP BY user_id) dc ON dc.user_id = u.id
+    LEFT JOIN (SELECT user_id, COUNT(*) as cnt FROM sessions GROUP BY user_id) sc ON sc.user_id = u.id
+    ORDER BY COALESCE(tc.cnt, 0) + COALESCE(dc.cnt, 0) + COALESCE(sc.cnt, 0) DESC
     LIMIT 10
   `).all()
 
@@ -71,9 +68,11 @@ app.get('/users', async (c) => {
   const search = c.req.query('search')
 
   let sql = `SELECT u.id, u.name, u.email, u.avatar, u.system_role, u.created_at,
-             (SELECT COUNT(*) FROM thoughts t WHERE t.user_id = u.id) as thought_count,
-             (SELECT COUNT(*) FROM sessions s WHERE s.user_id = u.id) as session_count
-             FROM users u`
+             COALESCE(tc.cnt, 0) as thought_count,
+             COALESCE(sc.cnt, 0) as session_count
+             FROM users u
+             LEFT JOIN (SELECT user_id, COUNT(*) as cnt FROM thoughts GROUP BY user_id) tc ON tc.user_id = u.id
+             LEFT JOIN (SELECT user_id, COUNT(*) as cnt FROM sessions GROUP BY user_id) sc ON sc.user_id = u.id`
   const params: unknown[] = []
 
   if (search) {

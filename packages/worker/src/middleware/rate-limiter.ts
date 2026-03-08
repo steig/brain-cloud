@@ -20,10 +20,9 @@ const DEFAULT_CONFIG: RateLimitConfig = {
 }
 
 /**
- * Rate limiting middleware using D1 sliding window.
+ * Rate limiting middleware using D1 fixed-window counters.
  *
- * Uses a simple fixed-window approach stored in D1.
- * Each window is a time bucket (e.g., "2024-01-15T10:05" for 5-min window).
+ * Each window is a numeric time bucket derived from epoch seconds.
  */
 export function rateLimiter(config: Partial<RateLimitConfig> = {}) {
   const { limit, windowSeconds, keyFn } = { ...DEFAULT_CONFIG, ...config }
@@ -35,17 +34,11 @@ export function rateLimiter(config: Partial<RateLimitConfig> = {}) {
     const fullKey = `${key}:${c.req.path}`
 
     try {
-      // Increment counter
-      await c.env.DB.prepare(
-        `INSERT INTO rate_limits (key, window, count) VALUES (?, ?, 1)
-         ON CONFLICT(key, window) DO UPDATE SET count = count + 1`,
-      )
-        .bind(fullKey, window)
-        .run()
-
-      // Check count
+      // Increment and read count in a single query
       const row = await c.env.DB.prepare(
-        'SELECT count FROM rate_limits WHERE key = ? AND window = ?',
+        `INSERT INTO rate_limits (key, window, count) VALUES (?, ?, 1)
+         ON CONFLICT(key, window) DO UPDATE SET count = count + 1
+         RETURNING count`,
       )
         .bind(fullKey, window)
         .first<{ count: number }>()
