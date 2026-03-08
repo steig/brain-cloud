@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,32 +11,35 @@ import { DashboardPage } from "@/components/dashboard/page";
 import { ThoughtsPage } from "@/components/thoughts/page";
 import { DecisionsPage } from "@/components/decisions/page";
 import { SessionsPage } from "@/components/sessions/page";
-import { AnalyticsPage } from "@/components/analytics/page";
 import { SettingsPage } from "@/components/settings/page";
 import { HandoffsPage } from "@/components/handoffs/page";
-import { CalendarPage } from "@/components/calendar/page";
 import { QuickEntryPage } from "@/components/quick-entry/page";
 import { ReviewsPage } from "@/components/decisions/reviews-page";
-import { InsightsPage } from "@/components/insights/page";
 import { GitHubPage } from "@/components/github/page";
 import { TeamsPage } from "@/components/teams/page";
-import { TeamAdminPage } from "@/components/teams/admin-page";
-import { TeamWorkspacePage } from "@/components/teams/workspace-page";
-import { TeamCoachingPage } from "@/components/teams/coaching-page";
 import { ProjectsPage } from "@/components/projects/page";
-import { AskPage } from "@/components/ask/page";
-import { CoachingPage } from "@/components/coaching/page";
-import { AdminDashboardPage } from "@/components/admin/dashboard-page";
-import { AdminUsersPage } from "@/components/admin/users-page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
-import { ChangelogPage } from "@/components/changelog/page";
 import { LandingPage } from "@/components/marketing/landing-page";
 import { DemoProvider } from "@/lib/demo-context";
 import { DemoBanner } from "@/components/demo/demo-banner";
 import { DemoEntry } from "@/components/demo/demo-entry";
 import { isMarketingSite } from "@/lib/config";
 import { trackPageView } from "@/lib/analytics";
+import { PageSkeleton } from "@/components/shared/page-skeleton";
+
+// Lazy-loaded heavy routes
+const AdminDashboardPage = lazy(() => import("./components/admin/dashboard-page").then(m => ({ default: m.AdminDashboardPage })));
+const AdminUsersPage = lazy(() => import("./components/admin/users-page").then(m => ({ default: m.AdminUsersPage })));
+const CoachingPage = lazy(() => import("./components/coaching/page").then(m => ({ default: m.CoachingPage })));
+const InsightsPage = lazy(() => import("./components/insights/page").then(m => ({ default: m.InsightsPage })));
+const AnalyticsPage = lazy(() => import("./components/analytics/page").then(m => ({ default: m.AnalyticsPage })));
+const TeamAdminPage = lazy(() => import("./components/teams/admin-page").then(m => ({ default: m.TeamAdminPage })));
+const TeamWorkspacePage = lazy(() => import("./components/teams/workspace-page").then(m => ({ default: m.TeamWorkspacePage })));
+const TeamCoachingPage = lazy(() => import("./components/teams/coaching-page").then(m => ({ default: m.TeamCoachingPage })));
+const CalendarPage = lazy(() => import("./components/calendar/page").then(m => ({ default: m.CalendarPage })));
+const ChangelogPage = lazy(() => import("./components/changelog/page").then(m => ({ default: m.ChangelogPage })));
+const AskPage = lazy(() => import("./components/ask/page").then(m => ({ default: m.AskPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -71,6 +74,10 @@ function PlaceholderPage({ title }: { title: string }) {
   );
 }
 
+function LazyRoute({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<PageSkeleton />}>{children}</Suspense>;
+}
+
 function AppLayout() {
   return (
     <div className="flex h-screen flex-col">
@@ -89,20 +96,20 @@ function AppLayout() {
             <Route path="decisions/reviews" element={<ReviewsPage />} />
             <Route path="sessions" element={<SessionsPage />} />
             <Route path="handoffs" element={<HandoffsPage />} />
-            <Route path="ask" element={<AskPage />} />
-            <Route path="insights" element={<InsightsPage />} />
-            <Route path="coaching" element={<CoachingPage />} />
-            <Route path="calendar" element={<CalendarPage />} />
+            <Route path="ask" element={<LazyRoute><AskPage /></LazyRoute>} />
+            <Route path="insights" element={<LazyRoute><InsightsPage /></LazyRoute>} />
+            <Route path="coaching" element={<LazyRoute><CoachingPage /></LazyRoute>} />
+            <Route path="calendar" element={<LazyRoute><CalendarPage /></LazyRoute>} />
             <Route path="teams" element={<TeamsPage />} />
-            <Route path="teams/:id/admin" element={<TeamAdminPage />} />
-            <Route path="teams/:id/workspace" element={<TeamWorkspacePage />} />
-            <Route path="teams/:id/coaching" element={<TeamCoachingPage />} />
+            <Route path="teams/:id/admin" element={<LazyRoute><TeamAdminPage /></LazyRoute>} />
+            <Route path="teams/:id/workspace" element={<LazyRoute><TeamWorkspacePage /></LazyRoute>} />
+            <Route path="teams/:id/coaching" element={<LazyRoute><TeamCoachingPage /></LazyRoute>} />
             <Route path="projects" element={<ProjectsPage />} />
             <Route path="github" element={<GitHubPage />} />
-            <Route path="admin" element={<AdminDashboardPage />} />
-            <Route path="admin/dashboard" element={<AdminDashboardPage />} />
-            <Route path="admin/users" element={<AdminUsersPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="admin" element={<LazyRoute><AdminDashboardPage /></LazyRoute>} />
+            <Route path="admin/dashboard" element={<LazyRoute><AdminDashboardPage /></LazyRoute>} />
+            <Route path="admin/users" element={<LazyRoute><AdminUsersPage /></LazyRoute>} />
+            <Route path="analytics" element={<LazyRoute><AnalyticsPage /></LazyRoute>} />
             <Route path="settings" element={<SettingsPage />} />
           </Routes>
           </main>
@@ -138,7 +145,7 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/privacy" element={<PrivacyPolicyPage />} />
               <Route path="/terms" element={<TermsOfServicePage />} />
-              <Route path="/changelog" element={<ChangelogPage />} />
+              <Route path="/changelog" element={<LazyRoute><ChangelogPage /></LazyRoute>} />
               <Route path="/demo" element={<DemoEntry />} />
               {isMarketingSite && (
                 <Route path="/" element={<LandingPage />} />
