@@ -124,41 +124,117 @@
   }
 }
 
-/* ── Prose docs table styling ── */
+/* ── Prose typography (no @tailwindcss/typography in TW4) ── */
+.prose {
+  color: var(--foreground);
+  line-height: 1.75;
+  font-size: 1rem;
+}
+.prose-sm { font-size: 0.875rem; line-height: 1.6; }
+.prose-base { font-size: 1rem; line-height: 1.75; }
+
+/* Headings */
+.prose h1 { font-size: 2rem; font-weight: 700; margin-top: 0; margin-bottom: 1rem; letter-spacing: -0.025em; }
+.prose h2 { font-size: 1.5rem; font-weight: 600; margin-top: 2.5rem; margin-bottom: 1rem; letter-spacing: -0.025em; }
+.prose h3 { font-size: 1.25rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.75rem; letter-spacing: -0.015em; }
+.prose h4 { font-size: 1.1rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+
+/* Paragraphs */
+.prose p { margin-top: 1.25rem; margin-bottom: 1.25rem; }
+.prose-base p { margin-top: 1.5rem; margin-bottom: 1.5rem; line-height: 1.8; }
+
+/* Links */
+.prose a { color: var(--primary); text-decoration: none; }
+.prose a:hover { text-decoration: underline; }
+
+/* Bold / italic */
+.prose strong { font-weight: 600; }
+
+/* Lists */
+.prose ul { list-style-type: disc; padding-left: 1.75rem; margin-top: 1.25rem; margin-bottom: 1.25rem; }
+.prose ol { list-style-type: decimal; padding-left: 1.75rem; margin-top: 1.25rem; margin-bottom: 1.25rem; }
+.prose li { margin-top: 0.375rem; margin-bottom: 0.375rem; padding-left: 0.375rem; }
+.prose ol > li::marker { font-weight: 600; color: var(--foreground); }
+.prose-base ul,
+.prose-base ol { margin-top: 1.5rem; margin-bottom: 1.5rem; }
+.prose-base li { margin-top: 0.5rem; margin-bottom: 0.5rem; }
+
+/* Blockquotes */
+.prose blockquote {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem 0.75rem 1.25rem;
+  border-left: 3px solid var(--primary);
+  background: color-mix(in oklch, var(--muted) 40%, transparent);
+  border-radius: 0 0.375rem 0.375rem 0;
+  font-style: italic;
+}
+.prose blockquote p { margin-top: 0.5rem; margin-bottom: 0.5rem; }
+
+/* Inline code */
+.prose :not(pre) > code {
+  background: var(--muted);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+}
+.prose code::before,
+.prose code::after { content: none; }
+
+/* Code blocks */
+.prose pre {
+  background: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+/* Tables */
 .prose table {
   border-collapse: collapse;
   width: 100%;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
 }
 .prose th,
 .prose td {
   border: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
-}
-.prose th {
-  background: color-mix(in oklch, var(--muted) 50%, transparent);
-  font-weight: 500;
   text-align: left;
 }
+.prose th {
+  background: color-mix(in oklch, var(--muted) 60%, transparent);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
 .prose tbody tr:nth-child(even) {
-  background: color-mix(in oklch, var(--muted) 25%, transparent);
+  background: color-mix(in oklch, var(--muted) 20%, transparent);
 }
 
-/* ── Prose ordered list numbering ── */
-.prose ol {
-  list-style-type: decimal;
-  padding-left: 1.5rem;
+/* Horizontal rules */
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin-top: 2.5rem;
+  margin-bottom: 2.5rem;
 }
-.prose ol > li {
-  padding-left: 0.375rem;
-}
-.prose ol > li::marker {
-  font-weight: 600;
-  color: var(--foreground);
-}
-.prose ul {
-  list-style-type: disc;
-  padding-left: 1.5rem;
-}
-.prose ul > li {
-  padding-left: 0.25rem;
-}
+
+/* Images */
+.prose img { border-radius: 0.5rem; margin-top: 1.5rem; margin-bottom: 1.5rem; }
+
+/* Compact mode overrides */
+.prose-compact p { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+.prose-compact h2,
+.prose-compact h3,
+.prose-compact h4 { margin-top: 0.5rem; margin-bottom: 0.5rem; }
+.prose-compact ul,
+.prose-compact ol { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+.prose-compact li { margin-top: 0; margin-bottom: 0; }

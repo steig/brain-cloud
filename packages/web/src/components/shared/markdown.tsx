@@ -50,29 +50,10 @@ export const Markdown = memo(function Markdown({
   return (
     <div
       className={cn(
-        "prose dark:prose-invert max-w-none",
+        "prose max-w-none",
         size === "sm" && "prose-sm",
-        size === "base" && [
-          "prose-base prose-p:leading-7 prose-p:my-5",
-          "prose-headings:mt-10 prose-headings:mb-4",
-          // Lists: indented, spaced, with visible markers
-          "prose-ul:my-5 prose-ul:pl-6 prose-ol:my-5 prose-ol:pl-6 prose-li:my-1.5",
-          // Blockquotes: accent border, background tint
-          "prose-blockquote:my-6 prose-blockquote:pl-5 prose-blockquote:py-1 prose-blockquote:border-l-2 prose-blockquote:border-primary/40 prose-blockquote:bg-muted/40 prose-blockquote:rounded-r-md prose-blockquote:italic",
-          "prose-pre:my-6",
-          "prose-hr:my-10",
-        ].join(" "),
-        "prose-headings:font-semibold prose-headings:tracking-tight",
-        "prose-code:before:content-none prose-code:after:content-none",
-        "prose-code:rounded prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:text-xs prose-code:font-normal",
-        "prose-pre:bg-muted prose-pre:border prose-pre:border-border",
-        "prose-a:text-primary prose-a:no-underline hover:prose-a:underline",
-        "prose-img:rounded-md",
-        // Tables: borders, padding, striped header
-        "prose-table:text-sm prose-table:my-6 prose-table:border prose-table:border-border prose-table:rounded-md prose-table:overflow-hidden",
-        "prose-th:text-left prose-th:font-medium prose-th:bg-muted/50 prose-th:px-3 prose-th:py-2 prose-th:border-b prose-th:border-border",
-        "prose-td:px-3 prose-td:py-2 prose-td:border-b prose-td:border-border/50",
-        compact && "prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0",
+        size === "base" && "prose-base",
+        compact && "prose-compact",
         className,
       )}
     >
