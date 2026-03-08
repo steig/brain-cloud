@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SummaryTab } from "./summary-tab";
 import { CoachingTab } from "./coaching-tab";
 import { PatternsTab } from "./patterns-tab";
+import { CrossProjectTab } from "./cross-project-tab";
 
 export function InsightsPage() {
   return (
@@ -13,6 +14,7 @@ export function InsightsPage() {
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="coaching">Coaching</TabsTrigger>
           <TabsTrigger value="patterns">Patterns</TabsTrigger>
+          <TabsTrigger value="cross-project">Cross-Project</TabsTrigger>
         </TabsList>
 
         <TabsContent value="summary">
@@ -23,6 +25,9 @@ export function InsightsPage() {
         </TabsContent>
         <TabsContent value="patterns">
           <PatternsTab />
+        </TabsContent>
+        <TabsContent value="cross-project">
+          <CrossProjectTab />
         </TabsContent>
       </Tabs>
     </div>
