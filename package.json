@@ -1,13 +1,26 @@
 {
-  "name": "brain-cloud",
+  "name": "brain-worker",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter worker dev",
-    "deploy": "pnpm --filter worker deploy",
-    "migrate": "pnpm --filter worker migrate",
-    "test": "pnpm --filter brain-worker test"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "migrate": "wrangler d1 migrations apply brain-db --local",
+    "migrate:prod": "wrangler d1 migrations apply brain-db --remote",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "workerd"]
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "hono": "^4.7.0",
+    "jose": "^6.0.0",
+    "toucan-js": "^4.1.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.12.20",
+    "@cloudflare/workers-types": "^4.20250306.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.0.0"
   }
 }
