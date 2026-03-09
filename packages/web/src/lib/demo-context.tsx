@@ -12,6 +12,13 @@ import {
   DEMO_SUMMARY,
   DEMO_COACHING,
   DEMO_PROJECTS,
+  DEMO_HANDOFFS,
+  DEMO_API_KEYS,
+  DEMO_TEAMS,
+  DEMO_TEAM_DETAIL,
+  DEMO_TEAM_STATS,
+  DEMO_TEAM_FEED,
+  DEMO_TEAM_COACHING,
 } from "@/components/demo/sample-data";
 
 interface DemoContextValue {
@@ -62,13 +69,24 @@ function seedQueryCache(qc: ReturnType<typeof useQueryClient>) {
     DEMO_SUMMARY
   );
 
+  // Handoffs
+  qc.setQueryData(["handoffs", undefined], DEMO_HANDOFFS);
+  qc.setQueryData(["handoffs", {}], DEMO_HANDOFFS);
+
+  // API keys
+  qc.setQueryData(["api-keys"], DEMO_API_KEYS);
+
+  // Teams
+  qc.setQueryData(["teams"], DEMO_TEAMS);
+  const teamId = DEMO_TEAMS[0].id;
+  qc.setQueryData(["teams", teamId], DEMO_TEAM_DETAIL);
+  qc.setQueryData(["team-stats", teamId], DEMO_TEAM_STATS);
+  qc.setQueryData(["team-feed", teamId, 50], DEMO_TEAM_FEED);
+  qc.setQueryData(["team-coaching", teamId, 7], DEMO_TEAM_COACHING);
+
   // Empty arrays for features the demo doesn't populate
-  qc.setQueryData(["handoffs", undefined], []);
-  qc.setQueryData(["handoffs", {}], []);
-  qc.setQueryData(["api-keys"], []);
   qc.setQueryData(["github-repos"], []);
   qc.setQueryData(["github-activity", undefined], []);
-  qc.setQueryData(["teams"], []);
   qc.setQueryData(["decision-reviews"], []);
   qc.setQueryData(["decisions-needing-review"], []);
   qc.setQueryData(["review-stats"], {

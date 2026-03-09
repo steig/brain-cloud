@@ -78,9 +78,9 @@ const STEPS = [
   {
     icon: Terminal,
     step: "2",
-    title: "Connect Claude",
+    title: "Connect Your AI",
     description:
-      "Add your instance as an MCP server in Claude Code or Claude Desktop. One config snippet, one API key.",
+      "Add Brain Cloud as an MCP server in Claude, Cursor, Windsurf, or any MCP-compatible client. One config snippet, one API key.",
   },
   {
     icon: Brain,
@@ -95,11 +95,11 @@ const STEPS = [
 const FAQ_ITEMS = [
   {
     q: "What is an MCP server?",
-    a: "MCP (Model Context Protocol) is an open standard that lets AI assistants connect to external tools and data sources. Brain Cloud is an MCP server that gives Claude persistent memory across sessions.",
+    a: "MCP (Model Context Protocol) is an open standard that lets AI assistants connect to external tools and data sources. Brain Cloud is an MCP server that gives your AI persistent memory across sessions.",
   },
   {
     q: "Does Brain Cloud read my code?",
-    a: "No. Brain Cloud only stores the thoughts, decisions, and session data that Claude explicitly sends through MCP tool calls. It never accesses your files, repos, or code directly.",
+    a: "No. Brain Cloud only stores the thoughts, decisions, and session data that your AI explicitly sends through MCP tool calls. It never accesses your files, repos, or code directly.",
   },
   {
     q: "How much does Cloudflare cost?",
@@ -107,7 +107,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Which AI clients are supported?",
-    a: "Brain Cloud works with any MCP-compatible client, including Claude Code (CLI), Claude Desktop, and other tools that support the MCP standard.",
+    a: "Brain Cloud works with any client that supports the Model Context Protocol (MCP), including Claude Code, Claude Desktop, Cursor, Windsurf, Continue.dev, and Zed. If your editor supports MCP, it works with Brain Cloud.",
   },
   {
     q: "Where is my data stored?",
@@ -239,8 +239,9 @@ function HeroSection() {
           <span className="text-amber-400">everything you&apos;ve learned</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-400 sm:text-xl">
-          Give Claude persistent memory across sessions. Self-host on Cloudflare Workers —
-          100% free, your data stays on your infrastructure.
+          Give your AI persistent memory across sessions. Works with Claude, Cursor, Windsurf,
+          and any MCP client. Self-host on Cloudflare Workers — 100% free, your data stays on
+          your infrastructure.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild size="lg" className="w-full sm:w-auto bg-amber-600 text-white font-semibold hover:bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.35)]">
@@ -281,7 +282,7 @@ function ProblemSection() {
           <span className="text-gray-500">They disappear.</span>
         </h2>
         <p className="mt-6 text-lg text-gray-400">
-          Every time you start a new Claude session, you lose the context from the last one. The
+          Every time you start a new AI session, you lose the context from the last one. The
           decisions you made, the patterns you discovered, the lessons you learned — all gone. You
           end up re-explaining the same things over and over.
         </p>
@@ -558,7 +559,7 @@ export function LandingPage() {
     <div className="min-h-screen bg-[#0f0a05] text-gray-200">
       <Helmet>
         <title>Brain Cloud — Open Source AI Memory for Developers</title>
-        <meta name="description" content="Self-host persistent AI memory on Cloudflare Workers. Capture decisions, recall context, and get coaching insights. Free and open source (AGPL-3.0)." />
+        <meta name="description" content="Self-host persistent AI memory on Cloudflare Workers. Works with Claude, Cursor, Windsurf, and any MCP client. Capture decisions, recall context, and get coaching insights. Free and open source (AGPL-3.0)." />
       </Helmet>
       <NavBar />
       <HeroSection />

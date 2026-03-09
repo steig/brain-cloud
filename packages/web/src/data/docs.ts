@@ -62,7 +62,11 @@ There's nothing for you to do manually — Claude handles the logging. You just 
 1. Go to **Settings → API Keys**
 2. Create a key — copy it somewhere safe
 
-## 2. Add to Claude Code
+## 2. Connect Your AI Client
+
+Brain Cloud works with any MCP-compatible AI client. Pick yours below.
+
+### Claude Code
 
 Create or edit \`~/.claude/mcp.json\` (replace \`YOUR_SERVER\` with your instance URL):
 
@@ -80,11 +84,81 @@ Create or edit \`~/.claude/mcp.json\` (replace \`YOUR_SERVER\` with your instanc
 }
 \`\`\`
 
-For **Claude Desktop**, the config file lives at:
+### Claude Desktop
+
+Config file location:
 - macOS: \`~/Library/Application Support/Claude/claude_desktop_config.json\`
 - Windows: \`%APPDATA%/Claude/claude_desktop_config.json\`
 
-Same format — just add the \`mcpServers\` block.
+Same \`mcpServers\` format as Claude Code.
+
+### Cursor
+
+Create \`.cursor/mcp.json\` in your project root (or global \`~/.cursor/mcp.json\`):
+
+\`\`\`json
+{
+  "mcpServers": {
+    "brain-cloud": {
+      "url": "https://YOUR_SERVER/mcp",
+      "headers": {
+        "X-API-Key": "YOUR_API_KEY"
+      }
+    }
+  }
+}
+\`\`\`
+
+### Windsurf (Codeium)
+
+Edit \`~/.codeium/windsurf/mcp_config.json\`:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "brain": {
+      "type": "url",
+      "url": "YOUR_SERVER/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+\`\`\`
+
+### Continue.dev
+
+Add an \`mcpServers\` array to \`~/.continue/config.json\`:
+
+\`\`\`json
+{
+  "mcpServers": [
+    {
+      "name": "brain-cloud",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-proxy", "--endpoint", "https://YOUR_SERVER/mcp", "--header", "X-API-Key: YOUR_API_KEY"]
+    }
+  ]
+}
+\`\`\`
+
+### Zed
+
+Add to your Zed settings (\`~/.config/zed/settings.json\`):
+
+\`\`\`json
+{
+  "context_servers": {
+    "brain-cloud": {
+      "command": {
+        "path": "npx",
+        "args": ["-y", "@anthropic-ai/mcp-proxy", "--endpoint", "https://YOUR_SERVER/mcp", "--header", "X-API-Key: YOUR_API_KEY"]
+      }
+    }
+  }
+}
+\`\`\`
 
 ## 3. Tell Claude How to Use It
 
@@ -555,6 +629,59 @@ You can export all your data at any time via **Settings → Export** or the API:
 \`\`\`bash
 curl -H "X-API-Key: YOUR_KEY" https://YOUR_DOMAIN/api/export?format=json&type=all
 \`\`\``,
+      },
+    ],
+  },
+  {
+    title: "API",
+    sections: [
+      {
+        id: "rate-limiting",
+        title: "Rate Limiting",
+        content: `Brain Cloud uses fixed-window rate limiting backed by D1. Every API and MCP request is counted against a per-key, per-path window. If the rate limit infrastructure encounters an error, requests are allowed through (fail-open) so a transient D1 issue never blocks your workflow.
+
+## Rate Limit Tiers
+
+| Tier | Limit | Window | Applies To |
+|------|-------|--------|------------|
+| **API** | 100 requests | 60 seconds | Standard API endpoints |
+| **AI** | 20 requests | 60 seconds | AI-powered endpoints (coaching, digests, embeddings) |
+| **Auth** | 10 requests | 300 seconds | Authentication endpoints (login, OAuth callbacks) |
+
+The key used for rate limiting depends on the tier. API and AI tiers identify callers by API key (hashed), authenticated user ID, or IP address — in that order of precedence. The Auth tier always uses the client IP address to prevent brute-force attacks regardless of authentication state.
+
+## Response Headers
+
+Every response includes rate limit headers so clients can track their usage:
+
+| Header | Description | Example |
+|--------|-------------|---------|
+| \`X-RateLimit-Limit\` | Maximum requests allowed in the current window | \`100\` |
+| \`X-RateLimit-Remaining\` | Requests remaining in the current window | \`87\` |
+| \`X-RateLimit-Reset\` | Unix timestamp (seconds) when the current window resets | \`1709942460\` |
+| \`Retry-After\` | Seconds to wait before retrying (only on 429 responses) | \`60\` |
+
+## Handling 429 Responses
+
+When a client exceeds the rate limit, the API returns HTTP 429 with a JSON body:
+
+\`\`\`json
+{
+  "error": "Too many requests",
+  "code": "RATE_LIMITED"
+}
+\`\`\`
+
+The \`Retry-After\` header indicates how many seconds to wait. Clients should implement exponential backoff:
+
+1. On a 429 response, wait for the duration specified in \`Retry-After\`
+2. If subsequent requests still return 429, double the wait time on each retry
+3. Cap the maximum backoff at a reasonable limit (e.g. 5 minutes)
+4. Add a small random jitter to avoid thundering-herd problems
+
+## MCP Clients
+
+MCP clients connecting to Brain Cloud encounter the same rate limits. The \`X-RateLimit-Remaining\` header is the best signal for proactive throttling — if it drops to zero, pause requests until \`X-RateLimit-Reset\`.`,
       },
     ],
   },

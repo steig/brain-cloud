@@ -8,6 +8,13 @@ import type {
   BrainSummary,
   CoachingData,
   Project,
+  Handoff,
+  ApiKey,
+  Team,
+  TeamDetail,
+  TeamStats,
+  TeamFeedItem,
+  TeamCoaching,
 } from "@/lib/api";
 
 const now = new Date();
@@ -527,4 +534,222 @@ export const DEMO_SUMMARY: BrainSummary = {
     (s) =>
       s.blockers?.map((b) => ({ content: b, date: s.started_at })) ?? []
   ),
+};
+
+export const DEMO_HANDOFFS: Handoff[] = [
+  {
+    id: uuid(200),
+    user_id: "demo-user",
+    from_project: "payment-service",
+    to_project: "infra-migration",
+    handoff_type: "blocker",
+    priority: "high",
+    message:
+      "Stripe webhook retry queue needs a durable backing store. Currently in-memory — if the Worker restarts mid-retry, events are lost. Need D1 or Durable Objects solution before going live.",
+    status: "pending",
+    claimed_at: null,
+    claim_note: null,
+    created_at: daysAgo(1, 2),
+  },
+  {
+    id: uuid(201),
+    user_id: "demo-user",
+    from_project: "frontend-redesign",
+    to_project: "payment-service",
+    handoff_type: "context",
+    priority: "medium",
+    message:
+      "The new checkout form uses useOptimistic for instant feedback. Payment API needs to return a predictable shape for optimistic updates — specifically the line_items array with calculated totals.",
+    status: "claimed",
+    claimed_at: daysAgo(0, 8),
+    claim_note: "Adding line_items to the POST /checkout response. PR #47 in progress.",
+    created_at: daysAgo(2, 5),
+  },
+  {
+    id: uuid(202),
+    user_id: "demo-user",
+    from_project: "infra-migration",
+    to_project: "frontend-redesign",
+    handoff_type: "task",
+    priority: "low",
+    message:
+      "Cloudflare Workers environment variables changed from BINDING to env.BINDING in the new module format. Frontend build scripts that reference worker bindings need updating.",
+    status: "resolved",
+    claimed_at: daysAgo(3, 1),
+    claim_note: "Updated vite.config.ts and wrangler.toml references. Merged in commit abc1234.",
+    created_at: daysAgo(4, 3),
+  },
+];
+
+export const DEMO_API_KEYS: ApiKey[] = [
+  {
+    id: uuid(300),
+    name: "CLI dev machine",
+    key_prefix: "brn_dk82",
+    scope: "full",
+    expires_at: null,
+    created_at: daysAgo(14),
+    last_used_at: daysAgo(0, 1),
+    is_active: 1,
+  },
+  {
+    id: uuid(301),
+    name: "CI pipeline",
+    key_prefix: "brn_ci03",
+    scope: "read",
+    expires_at: daysAgo(-30), // 30 days in the future
+    created_at: daysAgo(7),
+    last_used_at: daysAgo(1, 4),
+    is_active: 1,
+  },
+];
+
+const DEMO_TEAM_ID = uuid(400);
+
+export const DEMO_TEAMS: Team[] = [
+  {
+    id: DEMO_TEAM_ID,
+    name: "Platform Engineering",
+    slug: "platform-eng",
+    description: "Core platform team — payments, infra, and frontend systems",
+    created_by: "demo-user",
+    created_at: daysAgo(20),
+    updated_at: daysAgo(2),
+    my_role: "owner",
+  },
+];
+
+export const DEMO_TEAM_DETAIL: TeamDetail = {
+  ...DEMO_TEAMS[0],
+  members: [
+    {
+      id: uuid(410),
+      team_id: DEMO_TEAM_ID,
+      user_id: "demo-user",
+      role: "owner",
+      joined_at: daysAgo(20),
+      user_name: "Demo User",
+      user_email: "demo@brain-ai.dev",
+      user_avatar: null,
+    },
+    {
+      id: uuid(411),
+      team_id: DEMO_TEAM_ID,
+      user_id: uuid(412),
+      role: "member",
+      joined_at: daysAgo(18),
+      user_name: "Alex Chen",
+      user_email: "alex@example.com",
+      user_avatar: null,
+    },
+    {
+      id: uuid(413),
+      team_id: DEMO_TEAM_ID,
+      user_id: uuid(414),
+      role: "member",
+      joined_at: daysAgo(15),
+      user_name: "Sarah Kim",
+      user_email: "sarah@example.com",
+      user_avatar: null,
+    },
+  ],
+};
+
+export const DEMO_TEAM_STATS: TeamStats = {
+  members: 3,
+  thoughts: 28,
+  decisions: 6,
+  sessions: 12,
+  member_activity: [
+    {
+      user_id: "demo-user",
+      name: "Demo User",
+      avatar_url: null,
+      role: "owner",
+      thoughts: 14,
+      decisions: 4,
+      sessions: 4,
+      last_active: daysAgo(0, 2),
+    },
+    {
+      user_id: uuid(412),
+      name: "Alex Chen",
+      avatar_url: null,
+      role: "member",
+      thoughts: 9,
+      decisions: 1,
+      sessions: 5,
+      last_active: daysAgo(0, 5),
+    },
+    {
+      user_id: uuid(414),
+      name: "Sarah Kim",
+      avatar_url: null,
+      role: "member",
+      thoughts: 5,
+      decisions: 1,
+      sessions: 3,
+      last_active: daysAgo(1, 3),
+    },
+  ],
+};
+
+export const DEMO_TEAM_FEED: TeamFeedItem[] = [
+  {
+    id: uuid(420),
+    type: "thought",
+    content: "Edge caching strategy for the checkout API — using stale-while-revalidate with 30s TTL on product catalog, no-store on cart endpoints.",
+    title: null,
+    thought_type: "insight",
+    tags: ["caching", "performance"],
+    created_at: daysAgo(0, 3),
+    user_name: "Alex Chen",
+    user_avatar: null,
+  },
+  {
+    id: uuid(421),
+    type: "decision",
+    content: null,
+    title: "Use Vitest over Jest for the frontend test suite",
+    thought_type: null,
+    tags: ["testing", "dx"],
+    created_at: daysAgo(1, 2),
+    user_name: "Sarah Kim",
+    user_avatar: null,
+  },
+  {
+    id: uuid(422),
+    type: "session",
+    content: null,
+    title: null,
+    thought_type: null,
+    tags: [],
+    created_at: daysAgo(1, 6),
+    user_name: "Demo User",
+    user_avatar: null,
+  },
+];
+
+export const DEMO_TEAM_COACHING: TeamCoaching = {
+  productivity_score: 7.8,
+  highlights: [
+    "Strong cross-project communication via handoffs",
+    "Decisions are well-documented with clear rationale",
+    "Consistent session tracking across all team members",
+  ],
+  challenges: [
+    "Two open blockers involving Stripe and Cloudflare integration",
+    "Some sessions lack defined goals upfront",
+  ],
+  suggestions: [
+    "Consider a weekly decision review to capture outcomes",
+    "Add tags consistently to improve searchability",
+  ],
+  collaboration_patterns: [
+    "Payment-service and infra-migration have the most cross-project handoffs",
+    "Alex focuses on backend; Sarah on frontend — good domain coverage",
+  ],
+  period_days: 7,
+  member_count: 3,
+  generated_at: daysAgo(0),
 };
