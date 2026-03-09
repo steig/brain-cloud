@@ -8,6 +8,32 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.6.0',
+    date: '2026-03-08',
+    title: 'Cognitive Decay',
+    description: 'Strength-weighted memory relevance with a piecewise hybrid decay model — memories naturally fade unless reinforced by access.',
+    changes: [
+      { type: 'added', text: 'Piecewise hybrid decay model for strength-weighted memory relevance' },
+      { type: 'added', text: '`brain_memory_health` tool — surface fading and at-risk memories' },
+      { type: 'added', text: 'Fading memories alert surfaced automatically on session start' },
+      { type: 'improved', text: 'Search and recall results re-ranked by memory strength' },
+    ],
+  },
+  {
+    version: '1.5.0',
+    date: '2026-03-08',
+    title: 'Cognitive Memory & CLI',
+    description: 'Access tracking, reminders, stale decision detection, weekly digests, and a new CLI for quick setup.',
+    changes: [
+      { type: 'added', text: 'Access tracking on thoughts and decisions — frequency and recency inform relevance' },
+      { type: 'added', text: 'Reminders: `brain_remind`, `brain_reminders`, `brain_complete_reminder`, `brain_delete_reminder`' },
+      { type: 'added', text: '`brain_stale_decisions` — find decisions that may need revisiting' },
+      { type: 'added', text: '`brain_digest` — AI-generated weekly digest of activity and patterns' },
+      { type: 'added', text: 'Brain CLI (`npx brain-cloud`) — thin client for setup and config' },
+      { type: 'added', text: '`npx create-brain-cloud update` — one-command config updater' },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-03-08',
     title: 'Performance, Security Hardening & Amber Rebrand',

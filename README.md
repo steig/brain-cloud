@@ -82,7 +82,7 @@ just migrate   # Run D1 migrations locally
 just dev       # Start worker + web dev servers
 ```
 
-## MCP Tools (28 total)
+## MCP Tools (35 total)
 
 | Category | Tools |
 |----------|-------|
@@ -91,6 +91,7 @@ just dev       # Start worker + web dev servers
 | **Analytics** | `brain_dx_event`, `brain_dx_summary`, `brain_sentiment`, `brain_score_session` |
 | **AI Coaching** | `brain_daily_digest`, `brain_daily_coaching`, `brain_coaching_insights`, `brain_summarize` |
 | **Decisions** | `brain_suggest_decision`, `brain_decision_review`, `brain_decision_templates`, `brain_decision_accuracy` |
+| **Cognitive** | `brain_remind`, `brain_reminders`, `brain_complete_reminder`, `brain_delete_reminder`, `brain_stale_decisions`, `brain_digest`, `brain_memory_health` |
 | **Collaboration** | `brain_handoff`, `brain_handoffs`, `brain_handoff_claim` |
 | **Integrations** | `brain_log_commit`, `brain_conversation` |
 | **System** | `brain_cost_per_outcome`, `brain_prompt_quality`, `brain_learning_curve`, `brain_delete`, `brain_check_update` |

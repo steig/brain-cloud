@@ -1027,6 +1027,85 @@ Learning curve metrics over time.
 | \`project_id\` | string | No | Filter by project |`,
       },
       {
+        id: "ref-cognitive",
+        title: "Cognitive Memory",
+        content: `### brain_stale_decisions
+Find decisions that may need revisiting based on age and lack of review.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| \`days\` | number | No | Age threshold in days (default: 30) |
+| \`limit\` | number | No | Max results (default: 10) |
+| \`project\` | string | No | Filter by project |
+
+---
+
+### brain_remind
+Create a reminder tied to a thought, decision, or freestanding.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| \`title\` | string | Yes | Reminder title |
+| \`due_at\` | string | Yes | ISO 8601 due date |
+| \`note\` | string | No | Additional context |
+| \`thought_id\` | string | No | Link to a thought |
+| \`decision_id\` | string | No | Link to a decision |
+| \`project\` | string | No | Project name |
+
+---
+
+### brain_reminders
+List upcoming or overdue reminders.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| \`status\` | enum | No | \`pending\` \`completed\` \`overdue\` (default: \`pending\`) |
+| \`limit\` | number | No | Max results (default: 20) |
+| \`project\` | string | No | Filter by project |
+
+---
+
+### brain_complete_reminder
+Mark a reminder as completed.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| \`reminder_id\` | string | Yes | Reminder UUID |
+
+---
+
+### brain_delete_reminder
+Delete a reminder.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| \`reminder_id\` | string | Yes | Reminder UUID |
+
+---
+
+### brain_digest
+Generate a weekly digest of activity, patterns, and suggestions.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| \`days\` | number | No | Days to cover (default: 7) |
+| \`project\` | string | No | Filter by project |
+| \`force\` | boolean | No | Force regeneration (default: false) |
+
+---
+
+### brain_memory_health
+Surface fading and at-risk memories based on cognitive decay strength.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| \`threshold\` | number | No | Strength threshold (default: 0.3) |
+| \`limit\` | number | No | Max results (default: 20) |
+| \`project\` | string | No | Filter by project |
+
+Memory decay model inspired by [shodh-rag.com/memory](https://www.shodh-rag.com/memory).`,
+      },
+      {
         id: "ref-system",
         title: "System",
         content: `### brain_delete
