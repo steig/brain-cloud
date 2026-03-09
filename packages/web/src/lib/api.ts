@@ -376,11 +376,13 @@ export interface RelatedEntry {
 }
 
 export interface TimelineEntry {
-  type: "thought" | "decision" | "session";
+  type: "thought" | "decision" | "session" | "sentiment" | "handoff" | "conversation";
   id: string;
   created_at: string;
   content?: string;
   title?: string;
+  subtype?: string;
+  project_name?: string;
   mood_start?: string;
   mood_end?: string;
   summary?: string;

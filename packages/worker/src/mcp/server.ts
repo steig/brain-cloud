@@ -1625,7 +1625,7 @@ async function handleJsonRpc(
       return {
         jsonrpc: '2.0',
         result: {
-          protocolVersion: '2025-03-26',
+          protocolVersion: '2024-11-05',
           capabilities: { tools: {} },
           serverInfo: { name: 'brain-mcp', version: SERVER_VERSION },
         },
@@ -1678,7 +1678,7 @@ async function handleJsonRpc(
 
 export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variables }>) {
   // Streamable HTTP: GET opens optional SSE stream, DELETE ends session
-  // This server is stateless — no SSE support, but we must not reject GET/DELETE
+  // This server is stateless — no persistent SSE, but we accept GET/DELETE per spec
   if (c.req.method === 'GET') {
     // Return SSE headers with immediate close — signals "no server-initiated messages"
     return new Response('', {

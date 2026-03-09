@@ -834,26 +834,47 @@ export async function searchBrain(
 // Timeline (replaces timeline RPC)
 // ═══════════════════════════════════════════════════════════════════
 
+type TimelineRow = { id: string; type: string; content: string; subtype: string | null; project_name: string | null; created_at: string }
+
 export async function getTimeline(
   db: D1Database, userId: string,
   fromDate: string, toDate: string, limit: number = 50
-): Promise<Array<{ id: string; type: string; content: string; project_name: string | null; created_at: string }>> {
-  const { results } = await db.prepare(
-    `SELECT t.id, 'thought' as type, t.content, p.name as project_name, t.created_at
+): Promise<TimelineRow[]> {
+  // D1 has a compound SELECT term limit, so we run two queries and merge
+  const core = db.prepare(
+    `SELECT t.id, 'thought' as type, t.type as subtype, t.content, p.name as project_name, t.created_at
      FROM thoughts t LEFT JOIN projects p ON t.project_id = p.id
      WHERE t.user_id = ? AND t.deleted_at IS NULL AND t.created_at BETWEEN ? AND ?
      UNION ALL
-     SELECT d.id, 'decision' as type, d.title as content, p.name as project_name, d.created_at
+     SELECT d.id, 'decision' as type, NULL as subtype, d.title as content, p.name as project_name, d.created_at
      FROM decisions d LEFT JOIN projects p ON d.project_id = p.id
      WHERE d.user_id = ? AND d.deleted_at IS NULL AND d.created_at BETWEEN ? AND ?
      UNION ALL
-     SELECT s.id, 'session' as type, COALESCE(s.summary, 'Session') as content, p.name as project_name, s.started_at as created_at
+     SELECT s.id, 'session' as type, NULL as subtype, COALESCE(s.summary, 'Session') as content, p.name as project_name, s.started_at as created_at
      FROM sessions s LEFT JOIN projects p ON s.project_id = p.id
      WHERE s.user_id = ? AND s.started_at BETWEEN ? AND ?
      ORDER BY created_at DESC LIMIT ?`
-  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, limit).all()
+  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, limit)
 
-  return results as Array<{ id: string; type: string; content: string; project_name: string | null; created_at: string }>
+  const extra = db.prepare(
+    `SELECT se.id, 'sentiment' as type, se.feeling as subtype, se.target_name || ': ' || COALESCE(se.reason, se.feeling) as content, p.name as project_name, se.created_at
+     FROM sentiment se LEFT JOIN projects p ON se.project_id = p.id
+     WHERE se.user_id = ? AND se.created_at BETWEEN ? AND ?
+     UNION ALL
+     SELECT h.id, 'handoff' as type, h.handoff_type as subtype, h.message as content, h.to_project as project_name, h.created_at
+     FROM handoffs h
+     WHERE h.user_id = ? AND h.created_at BETWEEN ? AND ?
+     UNION ALL
+     SELECT c.id, 'conversation' as type, NULL as subtype, COALESCE(c.response_summary, c.prompt_text) as content, p.name as project_name, c.created_at
+     FROM conversations c LEFT JOIN projects p ON c.project_id = p.id
+     WHERE c.user_id = ? AND c.created_at BETWEEN ? AND ?
+     ORDER BY created_at DESC LIMIT ?`
+  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, limit)
+
+  const [coreRes, extraRes] = await db.batch([core, extra])
+  const all = [...(coreRes.results as TimelineRow[]), ...(extraRes.results as TimelineRow[])]
+  all.sort((a, b) => b.created_at.localeCompare(a.created_at))
+  return all.slice(0, limit)
 }
 
 // ═══════════════════════════════════════════════════════════════════

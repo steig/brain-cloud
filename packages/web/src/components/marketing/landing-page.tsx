@@ -234,14 +234,14 @@ function HeroSection() {
           Free &amp; open source &middot; AGPL-3.0
         </div>
         <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl md:text-6xl">
-          Your AI remembers
+          The memory layer
           <br />
-          <span className="text-amber-400">everything you&apos;ve learned</span>
+          <span className="text-amber-400">for MCP</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-gray-400 sm:text-xl">
-          Give your AI persistent memory across sessions. Works with Claude, Cursor, Windsurf,
-          and any MCP client. Self-host on Cloudflare Workers — 100% free, your data stays on
-          your infrastructure.
+          AI agents are stateless. Brain Cloud isn&apos;t. It captures what your AI learns —
+          decisions, insights, patterns — and surfaces them when they matter. Self-host on
+          Cloudflare Workers for free.
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild size="lg" className="w-full sm:w-auto bg-amber-600 text-white font-semibold hover:bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.35)]">
@@ -277,17 +277,18 @@ function ProblemSection() {
     <section className="border-t border-amber-500/8 bg-amber-500/[0.02] px-4 py-16 sm:px-6 md:py-24">
       <div className="mx-auto max-w-3xl text-center">
         <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          Your AI sessions generate insights.
+          Every new session
           <br />
-          <span className="text-gray-500">They disappear.</span>
+          <span className="text-gray-500">starts from zero.</span>
         </h2>
         <p className="mt-6 text-lg text-gray-400">
-          Every time you start a new AI session, you lose the context from the last one. The
-          decisions you made, the patterns you discovered, the lessons you learned — all gone. You
-          end up re-explaining the same things over and over.
+          Your AI forgets everything between sessions. The decisions you made, the patterns you
+          discovered, the gotchas you hit — gone. You end up re-explaining the same context over
+          and over.
         </p>
         <p className="mt-4 text-lg font-medium text-white">
-          Brain Cloud fixes this. Your AI gets a persistent memory that grows with every session.
+          Brain Cloud gives MCP agents persistent memory. Cognitive decay keeps it sharp —
+          recent and frequently accessed knowledge surfaces first, stale context fades naturally.
         </p>
       </div>
     </section>
@@ -334,10 +335,10 @@ function FeaturesSection() {
       <div className="mx-auto max-w-5xl">
         <div className="mb-12 text-center md:mb-16">
           <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Everything your AI brain needs
+            35 MCP tools, one memory layer
           </h2>
           <p className="mt-4 text-lg text-gray-400">
-            A complete knowledge layer for AI-assisted development.
+            Works with Claude Code, Cursor, Windsurf, and any MCP client out of the box.
           </p>
         </div>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -558,8 +559,8 @@ export function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0f0a05] text-gray-200">
       <Helmet>
-        <title>Brain Cloud — Open Source AI Memory for Developers</title>
-        <meta name="description" content="Self-host persistent AI memory on Cloudflare Workers. Works with Claude, Cursor, Windsurf, and any MCP client. Capture decisions, recall context, and get coaching insights. Free and open source (AGPL-3.0)." />
+        <title>Brain Cloud — The Memory Layer for MCP</title>
+        <meta name="description" content="Persistent memory for MCP agents. Your AI forgets everything between sessions — Brain Cloud fixes that. Self-host on Cloudflare Workers for free. Works with Claude, Cursor, Windsurf, and any MCP client." />
       </Helmet>
       <NavBar />
       <HeroSection />

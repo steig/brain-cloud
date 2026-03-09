@@ -1,14 +1,17 @@
-import { Lightbulb, GitFork, Timer } from "lucide-react";
+import { Lightbulb, GitFork, Timer, Heart, ArrowRightLeft, MessageSquare } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { TimelineEntry } from "@/lib/api";
 import { timeAgo } from "@/lib/utils";
 
-const typeConfig = {
+const typeConfig: Record<string, { icon: typeof Lightbulb; color: string }> = {
   thought: { icon: Lightbulb, color: "bg-blue-500" },
   decision: { icon: GitFork, color: "bg-purple-500" },
   session: { icon: Timer, color: "bg-green-500" },
-} as const;
+  sentiment: { icon: Heart, color: "bg-rose-500" },
+  handoff: { icon: ArrowRightLeft, color: "bg-amber-500" },
+  conversation: { icon: MessageSquare, color: "bg-cyan-500" },
+};
 
 interface TimelineProps {
   entries: TimelineEntry[];
@@ -26,7 +29,7 @@ export function Timeline({ entries }: TimelineProps) {
   return (
     <div className="space-y-3">
       {entries.map((entry) => {
-        const config = typeConfig[entry.type];
+        const config = typeConfig[entry.type] ?? typeConfig.thought;
         const Icon = config.icon;
 
         return (
@@ -40,10 +43,15 @@ export function Timeline({ entries }: TimelineProps) {
                   <Badge variant="secondary" className="text-xs">
                     {entry.type}
                   </Badge>
-                  {entry.thought_type && (
+                  {(entry.subtype || entry.thought_type) && (
                     <Badge variant="outline" className="text-xs">
-                      {entry.thought_type}
+                      {entry.subtype || entry.thought_type}
                     </Badge>
+                  )}
+                  {entry.project_name && (
+                    <span className="text-xs text-muted-foreground">
+                      {entry.project_name}
+                    </span>
                   )}
                   <span className="text-xs text-muted-foreground ml-auto">
                     {timeAgo(entry.created_at)}

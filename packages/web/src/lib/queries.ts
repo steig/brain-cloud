@@ -194,9 +194,11 @@ export function useCreateSentiment() {
 
 // Timeline (RPC)
 export function useTimeline(days = 7) {
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
   return useQuery({
     queryKey: ["timeline", days],
-    queryFn: () => api.rpc<TimelineEntry[]>("timeline", { days }),
+    queryFn: () => api.rpc<TimelineEntry[]>("timeline", { from_date: from, to_date: to, limit_rows: 50 }),
   });
 }
 
