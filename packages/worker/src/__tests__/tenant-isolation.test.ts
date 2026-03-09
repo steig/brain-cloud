@@ -34,7 +34,7 @@ function userFetch(apiKey: string, path: string, init?: RequestInit): Request {
 function mcpToolCall(apiKey: string, name: string, args: Record<string, unknown>) {
   return new Request('http://localhost/mcp', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream', 'X-API-Key': apiKey },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }),
   })
 }

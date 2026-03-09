@@ -1,6 +1,6 @@
 import type { ErrorHandler } from 'hono'
 import { HTTPException } from 'hono/http-exception'
-import { Toucan } from 'toucan-js'
+import * as Sentry from '@sentry/cloudflare'
 import type { Env, Variables } from '../types'
 import { AppError } from '../errors'
 
@@ -22,24 +22,18 @@ export const errorHandler: ErrorHandler<{
   if (err instanceof AppError) {
     // Only report server errors (5xx) to Sentry
     if (err.status >= 500) {
-      const dsn = c.env.SENTRY_DSN
-      if (dsn) {
-        const sentry = new Toucan({
-          dsn,
-          request: c.req.raw,
-          context: c.executionCtx,
-        })
-        sentry.setTag('requestId', requestId)
-        sentry.setTag('errorCode', err.code)
-        sentry.setExtra('details', err.details)
+      Sentry.withScope((scope) => {
+        scope.setTag('requestId', requestId)
+        scope.setTag('errorCode', err.code)
+        scope.setExtra('details', err.details)
         try {
           const user = c.get('user')
-          if (user?.id) sentry.setUser({ id: user.id })
+          if (user?.id) scope.setUser({ id: user.id })
         } catch {
           // user may not be set on context
         }
-        sentry.captureException(err)
-      }
+        Sentry.captureException(err)
+      })
       console.error(`[${requestId}] AppError ${err.code}:`, err.message, err.details)
     }
 
@@ -52,22 +46,16 @@ export const errorHandler: ErrorHandler<{
   }
 
   // Unknown errors — report to Sentry
-  const dsn = c.env.SENTRY_DSN
-  if (dsn) {
-    const sentry = new Toucan({
-      dsn,
-      request: c.req.raw,
-      context: c.executionCtx,
-    })
-    sentry.setTag('requestId', requestId)
+  Sentry.withScope((scope) => {
+    scope.setTag('requestId', requestId)
     try {
       const user = c.get('user')
-      if (user?.id) sentry.setUser({ id: user.id })
+      if (user?.id) scope.setUser({ id: user.id })
     } catch {
       // user may not be set on context
     }
-    sentry.captureException(err)
-  }
+    Sentry.captureException(err)
+  })
 
   console.error(`[${requestId}] Unhandled error:`, err)
 

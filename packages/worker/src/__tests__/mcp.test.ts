@@ -4,11 +4,19 @@ import { applyMigrations, seedTestUser, getTestDb, TEST_USER } from './helpers'
 
 const API_KEY = TEST_USER.api_key
 
+/** MCP-compliant Accept header required by SDK transport */
+const MCP_ACCEPT = 'application/json, text/event-stream'
+
 /** Send a JSON-RPC request to /mcp */
 function mcpRequest(body: unknown, headers?: Record<string, string>): Request {
   return new Request('http://localhost/mcp', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY, ...headers },
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': MCP_ACCEPT,
+      'X-API-Key': API_KEY,
+      ...headers,
+    },
     body: JSON.stringify(body),
   })
 }
@@ -16,6 +24,20 @@ function mcpRequest(body: unknown, headers?: Record<string, string>): Request {
 /** Build a tools/call JSON-RPC payload */
 function toolCall(name: string, args: Record<string, unknown>, id: number = 1) {
   return { jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } }
+}
+
+/** Build an initialize JSON-RPC payload */
+function initRequest(id: number = 1) {
+  return {
+    jsonrpc: '2.0',
+    id,
+    method: 'initialize',
+    params: {
+      protocolVersion: '2024-11-05',
+      clientInfo: { name: 'test-client', version: '1.0.0' },
+      capabilities: {},
+    },
+  }
 }
 
 /** Parse the text content from a tools/call response */
@@ -33,21 +55,14 @@ describe('MCP JSON-RPC endpoint', () => {
   // ── Protocol ──────────────────────────────────────────────────────
 
   describe('protocol', () => {
-    it('GET returns SSE stream (Streamable HTTP)', async () => {
-      const res = await SELF.fetch(new Request('http://localhost/mcp', {
-        method: 'GET',
-        headers: { 'X-API-Key': API_KEY },
-      }))
-      expect(res.status).toBe(200)
-      expect(res.headers.get('Content-Type')).toBe('text/event-stream')
-    })
-
-    it('rejects unsupported methods', async () => {
-      const res = await SELF.fetch(new Request('http://localhost/mcp', {
-        method: 'PUT',
-        headers: { 'X-API-Key': API_KEY },
-      }))
-      expect(res.status).toBe(405)
+    it('rejects non-POST methods', async () => {
+      for (const method of ['GET', 'PUT', 'DELETE']) {
+        const res = await SELF.fetch(new Request('http://localhost/mcp', {
+          method,
+          headers: { 'X-API-Key': API_KEY },
+        }))
+        expect(res.status).toBe(405)
+      }
     })
 
     it('tools/list returns all tool definitions', async () => {
@@ -68,11 +83,12 @@ describe('MCP JSON-RPC endpoint', () => {
     })
 
     it('initialize returns server info', async () => {
-      const res = await SELF.fetch(mcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' }))
+      const res = await SELF.fetch(mcpRequest(initRequest()))
       expect(res.status).toBe(200)
-      const body = await res.json() as { result: { serverInfo: { name: string }; capabilities: unknown } }
+      const body = await res.json() as { result: { serverInfo: { name: string }; capabilities: unknown; protocolVersion: string } }
       expect(body.result.serverInfo.name).toBe('brain-mcp')
       expect(body.result.capabilities).toBeDefined()
+      expect(body.result.protocolVersion).toBe('2024-11-05')
     })
 
     it('returns method-not-found for unknown methods', async () => {
@@ -83,6 +99,7 @@ describe('MCP JSON-RPC endpoint', () => {
     })
 
     it('handles batch requests', async () => {
+      // SDK doesn't allow mixing initialize with other messages in a batch
       const res = await SELF.fetch(mcpRequest([
         { jsonrpc: '2.0', id: 1, method: 'ping' },
         { jsonrpc: '2.0', id: 2, method: 'ping' },
@@ -101,7 +118,7 @@ describe('MCP JSON-RPC endpoint', () => {
     it('rejects requests without X-API-Key', async () => {
       const res = await SELF.fetch(new Request('http://localhost/mcp', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': MCP_ACCEPT },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
       }))
       expect(res.status).toBe(401)

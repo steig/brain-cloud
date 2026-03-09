@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { secureHeaders } from 'hono/secure-headers'
@@ -129,14 +130,20 @@ app.get('*', (c) => {
     ?? c.text('Not found', 404)
 })
 
-export default {
-  fetch: app.fetch,
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    // Vectorize backfill can be triggered via POST /api/backfill/vectorize (admin only)
-    ctx.waitUntil(
-      handleRetention(env.DB, env).then((result) => {
-        console.log('[scheduled] Retention complete:', result)
-      }),
-    )
-  },
-}
+export default Sentry.withSentry(
+  (env: Env) => ({
+    dsn: env.SENTRY_DSN,
+    release: env.CF_VERSION_METADATA?.id,
+    tracesSampleRate: env.CF_VERSION_METADATA?.tag === 'staging' ? 1.0 : 0.2,
+  }),
+  {
+    fetch: app.fetch,
+    async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+      ctx.waitUntil(
+        handleRetention(env.DB, env).then((result) => {
+          console.log('[scheduled] Retention complete:', result)
+        }),
+      )
+    },
+  } satisfies ExportedHandler<Env>,
+)

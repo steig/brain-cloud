@@ -8,6 +8,31 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8.0',
+    date: '2026-03-09',
+    title: 'MCP SDK + Sentry Observability',
+    description: 'MCP server migrated from hand-rolled JSON-RPC to the official @modelcontextprotocol/sdk, with per-tool Sentry tracing via @sentry/cloudflare.',
+    changes: [
+      { type: 'improved', text: 'MCP server now uses @modelcontextprotocol/sdk Server class — automatic protocol negotiation, batch handling, and spec compliance' },
+      { type: 'added', text: 'Sentry tracing per MCP tool call via @sentry/cloudflare with Sentry.startSpan()' },
+      { type: 'improved', text: 'Error handler uses Sentry.withScope() to prevent tag bleed between concurrent requests' },
+      { type: 'fixed', text: 'Replaced deprecated toucan-js with @sentry/cloudflare for Cloudflare Workers monitoring' },
+    ],
+  },
+  {
+    version: '1.7.0',
+    date: '2026-03-09',
+    title: 'Dashboard Timeline & MCP Protocol Fix',
+    description: 'Dashboard timeline now surfaces all activity types and MCP protocol compatibility is restored for stateless servers.',
+    changes: [
+      { type: 'added', text: 'Dashboard timeline shows all 6 entry types: thoughts, decisions, sessions, sentiments, handoffs, and conversations' },
+      { type: 'fixed', text: 'Timeline parameter mismatch — frontend now sends correct from_date/to_date params' },
+      { type: 'fixed', text: 'D1 compound SELECT limit — timeline query split into two batched calls' },
+      { type: 'fixed', text: 'MCP protocol downgraded to 2024-11-05 for stateless server compatibility' },
+      { type: 'improved', text: 'Landing page and hero copy repositioned as "the memory layer for MCP"' },
+    ],
+  },
+  {
     version: '1.6.0',
     date: '2026-03-08',
     title: 'Cognitive Decay',

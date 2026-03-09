@@ -21,6 +21,9 @@ export interface Env {
   SENTRY_DSN?: string
   MAILCHANNELS_ENABLED?: string
 
+  // Version metadata (for Sentry releases)
+  CF_VERSION_METADATA?: { id: string; tag: string }
+
   // Vars (set in wrangler.toml)
   JWT_ISSUER: string
   FRONTEND_URL: string

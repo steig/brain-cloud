@@ -1,7 +1,7 @@
 /**
  * MCP Streamable HTTP endpoint.
- * Implements JSON-RPC 2.0 protocol for MCP tool calls over stateless HTTP.
- * All 28 tool handlers call db/queries.ts directly (no HTTP round-trip).
+ * Uses @modelcontextprotocol/sdk Server class for protocol handling.
+ * All tool handlers call db/queries.ts directly (no HTTP round-trip).
  */
 
 import type { Context } from 'hono'
@@ -12,26 +12,16 @@ import { scoreSession } from './scoring'
 import { getDecisionTemplate, listDecisionTemplates } from './templates'
 import { vectorSearch } from '../db/vectorize'
 import { trackAiUsage, type AiOperation } from '../ai-costs'
+import { Server } from '@modelcontextprotocol/sdk/server'
+import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
+import * as Sentry from '@sentry/cloudflare'
 
-export const SERVER_VERSION = '1.1.0'
+export const SERVER_VERSION = '1.8.0'
 
 // ═══════════════════════════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════════════════════════
-
-interface JsonRpcRequest {
-  jsonrpc: '2.0'
-  method: string
-  params?: Record<string, unknown>
-  id?: string | number
-}
-
-interface JsonRpcResponse {
-  jsonrpc: '2.0'
-  result?: unknown
-  error?: { code: number; message: string; data?: unknown }
-  id: string | number | null
-}
 
 interface McpUser {
   id: string
@@ -1587,89 +1577,57 @@ const READ_ONLY_TOOLS = new Set([
   'brain_memory_health',
 ])
 
-// Scope-aware wrapper: checks tool permissions before dispatching
-async function handleJsonRpcWithScope(
-  req: JsonRpcRequest,
-  env: Env,
-  user: McpUser,
-  keyScope: 'read' | 'write' | 'admin'
-): Promise<JsonRpcResponse | null> {
-  // Admin can do everything; protocol methods (initialize, etc.) always allowed
-  if (keyScope === 'admin' || req.method !== 'tools/call') {
-    return handleJsonRpc(req, env, user)
+/** Format a tool call result for the SDK */
+function toolResult(text: string, isError?: boolean) {
+  return {
+    content: [{ type: 'text' as const, text }],
+    ...(isError && { isError: true }),
   }
-
-  const toolName = (req.params?.name as string) ?? ''
-
-  if (keyScope === 'read' && !READ_ONLY_TOOLS.has(toolName)) {
-    return {
-      jsonrpc: '2.0',
-      error: { code: -32000, message: `API key scope "read" does not allow tool "${toolName}"` },
-      id: req.id ?? null,
-    }
-  }
-
-  // write scope can use all tools
-  return handleJsonRpc(req, env, user)
 }
 
-async function handleJsonRpc(
-  req: JsonRpcRequest,
-  env: Env,
-  user: McpUser
-): Promise<JsonRpcResponse | null> {
-  const isNotification = req.id === undefined
+// ═══════════════════════════════════════════════════════════════════
+// SDK Server Factory
+// ═══════════════════════════════════════════════════════════════════
 
-  switch (req.method) {
-    case 'initialize':
-      return {
-        jsonrpc: '2.0',
-        result: {
-          protocolVersion: '2024-11-05',
-          capabilities: { tools: {} },
-          serverInfo: { name: 'brain-mcp', version: SERVER_VERSION },
-        },
-        id: req.id!,
-      }
+function createMcpServer(env: Env, user: McpUser, keyScope: 'read' | 'write' | 'admin'): Server {
+  const server = new Server(
+    { name: 'brain-mcp', version: SERVER_VERSION },
+    { capabilities: { tools: {} } },
+  )
 
-    case 'notifications/initialized':
-      return null
+  // tools/list — filter tools by scope for read-only keys
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const tools = keyScope === 'read'
+      ? TOOLS.filter(t => READ_ONLY_TOOLS.has(t.name))
+      : TOOLS
+    return { tools }
+  })
 
-    case 'tools/list':
-      return { jsonrpc: '2.0', result: { tools: TOOLS }, id: req.id! }
+  // tools/call — scope check + Sentry tracing
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const toolName = request.params.name
+    const args = (request.params.arguments ?? {}) as Record<string, unknown>
 
-    case 'tools/call': {
-      const params = req.params as { name: string; arguments?: Record<string, unknown> }
-      try {
-        const result = await handleToolCall(params.name, params.arguments || {}, env, user)
-        return {
-          jsonrpc: '2.0',
-          result: { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] },
-          id: req.id!,
-        }
-      } catch (error) {
-        return {
-          jsonrpc: '2.0',
-          result: {
-            content: [{ type: 'text', text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
-            isError: true,
-          },
-          id: req.id!,
-        }
-      }
+    // Scope enforcement
+    if (keyScope === 'read' && !READ_ONLY_TOOLS.has(toolName)) {
+      return toolResult(`API key scope "read" does not allow tool "${toolName}"`, true)
     }
 
-    case 'ping':
-      return { jsonrpc: '2.0', result: {}, id: req.id! }
+    return Sentry.startSpan(
+      { name: `mcp.tool.${toolName}`, op: 'mcp.tool', attributes: { 'mcp.tool': toolName } },
+      async () => {
+        try {
+          const result = await handleToolCall(toolName, args, env, user)
+          return toolResult(JSON.stringify(result, null, 2))
+        } catch (error) {
+          Sentry.captureException(error)
+          return toolResult(`Error: ${error instanceof Error ? error.message : String(error)}`, true)
+        }
+      },
+    )
+  })
 
-    default:
-      if (isNotification) return null
-      return {
-        jsonrpc: '2.0',
-        error: { code: -32601, message: `Method not found: ${req.method}` },
-        id: req.id ?? null,
-      }
-  }
+  return server
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1677,30 +1635,12 @@ async function handleJsonRpc(
 // ═══════════════════════════════════════════════════════════════════
 
 export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variables }>) {
-  // Streamable HTTP: GET opens optional SSE stream, DELETE ends session
-  // This server is stateless — no persistent SSE, but we accept GET/DELETE per spec
-  if (c.req.method === 'GET') {
-    // Return SSE headers with immediate close — signals "no server-initiated messages"
-    return new Response('', {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    })
-  }
-
-  if (c.req.method === 'DELETE') {
-    // Stateless — nothing to clean up
-    return c.body(null, 200)
-  }
-
+  // Stateless server — only POST is supported (no SSE push, no sessions)
   if (c.req.method !== 'POST') {
     return c.json(
       { jsonrpc: '2.0', error: { code: -32000, message: 'Use POST for MCP requests' }, id: null },
       405,
-      { Allow: 'GET, POST, DELETE' }
+      { Allow: 'POST' }
     )
   }
 
@@ -1732,20 +1672,21 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
   }
 
   const keyScope = (user.key_scope || 'read') as 'read' | 'write' | 'admin'
+  const mcpUser: McpUser = { id: user.id, name: user.name }
 
-  const body = await c.req.json()
+  // Create per-request SDK server + stateless transport
+  const server = createMcpServer(c.env, mcpUser, keyScope)
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: undefined, // stateless
+    enableJsonResponse: true,
+  })
 
-  // Handle batch requests
-  if (Array.isArray(body)) {
-    const responses = await Promise.all(
-      body.map(req => handleJsonRpcWithScope(req as JsonRpcRequest, c.env, { id: user.id, name: user.name }, keyScope))
-    )
-    const filtered = responses.filter((r): r is JsonRpcResponse => r !== null)
-    if (filtered.length === 0) return c.body(null, 204)
-    return c.json(filtered)
+  await server.connect(transport)
+
+  try {
+    return await transport.handleRequest(c.req.raw)
+  } finally {
+    // Clean up per-request server
+    await server.close()
   }
-
-  const response = await handleJsonRpcWithScope(body as JsonRpcRequest, c.env, { id: user.id, name: user.name }, keyScope)
-  if (response === null) return c.body(null, 204)
-  return c.json(response)
 }
