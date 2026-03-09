@@ -33,9 +33,18 @@ describe('MCP JSON-RPC endpoint', () => {
   // ── Protocol ──────────────────────────────────────────────────────
 
   describe('protocol', () => {
-    it('rejects non-POST requests', async () => {
+    it('GET returns SSE stream (Streamable HTTP)', async () => {
       const res = await SELF.fetch(new Request('http://localhost/mcp', {
         method: 'GET',
+        headers: { 'X-API-Key': API_KEY },
+      }))
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Content-Type')).toBe('text/event-stream')
+    })
+
+    it('rejects unsupported methods', async () => {
+      const res = await SELF.fetch(new Request('http://localhost/mcp', {
+        method: 'PUT',
         headers: { 'X-API-Key': API_KEY },
       }))
       expect(res.status).toBe(405)
