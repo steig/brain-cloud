@@ -1,0 +1,19 @@
+{
+  "name": "brain-cloud",
+  "version": "0.1.0",
+  "description": "CLI installer for Brain Cloud MCP server",
+  "bin": {
+    "brain-cloud": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "typescript": "^5.9.3"
+  }
+}

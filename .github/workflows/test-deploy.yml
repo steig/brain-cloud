@@ -1,0 +1,33 @@
+name: E2E Deploy Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_cleanup:
+        description: "Skip resource cleanup (for debugging)"
+        type: boolean
+        default: false
+
+jobs:
+  deploy-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - run: pnpm install
+
+      - name: Run E2E deploy test
+        run: ./scripts/test-deploy.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_TEST_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_TEST_ACCOUNT_ID }}

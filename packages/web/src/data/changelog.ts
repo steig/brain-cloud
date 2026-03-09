@@ -1,0 +1,107 @@
+export interface ChangelogEntry {
+  version: string
+  date: string
+  title: string
+  description: string
+  changes: Array<{ type: 'added' | 'improved' | 'fixed'; text: string }>
+}
+
+export const changelog: ChangelogEntry[] = [
+  {
+    version: '1.4.0',
+    date: '2026-03-08',
+    title: 'Performance, Security Hardening & Amber Rebrand',
+    description: 'Major performance improvements, comprehensive security hardening, accessibility sweep, and a warm amber visual identity.',
+    changes: [
+      { type: 'added', text: 'Warm amber color scheme across landing page and UI theme' },
+      { type: 'added', text: 'Plausible analytics for privacy-friendly visitor tracking' },
+      { type: 'added', text: 'AI cost tracking wired to all AI operations (digest, coaching, RAG)' },
+      { type: 'added', text: 'Vectorize embedding cleanup on soft delete and retention job' },
+      { type: 'added', text: 'Vector search score threshold (0.65) to filter low-confidence results' },
+      { type: 'added', text: 'D1-based rate limiting with fail-open behavior' },
+      { type: 'added', text: 'HSTS and security headers middleware' },
+      { type: 'added', text: 'HMAC-signed OAuth state parameter to prevent CSRF' },
+      { type: 'added', text: 'Tenant isolation — projects scoped by user_id with migration' },
+      { type: 'added', text: '19 aria-labels across 13 components for screen reader accessibility' },
+      { type: 'improved', text: 'Code splitting — main JS bundle reduced from 1.1MB to 438KB via lazy-loaded routes' },
+      { type: 'improved', text: 'React Query mutations use targeted invalidation instead of broad family invalidation' },
+      { type: 'improved', text: 'API key scope defaults to read instead of write' },
+      { type: 'improved', text: 'Rate limiter uses hashed API key as bucket key to prevent bypass via multiple keys' },
+      { type: 'improved', text: 'Footer links with @steig profile and repo label' },
+      { type: 'fixed', text: 'Waitlist logout now calls server-side /auth/logout for httpOnly cookies' },
+      { type: 'fixed', text: 'AI generation failures logged with console.error for observability' },
+      { type: 'fixed', text: 'Production error responses sanitized — no stack traces or internal details' },
+      { type: 'fixed', text: 'Removed plaintext API key fallback from auth middleware' },
+      { type: 'fixed', text: 'MCP batch size capped at 20 requests' },
+      { type: 'fixed', text: 'Email addresses masked in admin stats endpoint' },
+    ],
+  },
+  {
+    version: '1.3.0',
+    date: '2026-03-08',
+    title: 'Open Source Self-Deploy',
+    description: 'Brain Cloud goes fully open source with one-command self-hosting on Cloudflare Workers.',
+    changes: [
+      { type: 'added', text: 'npx create-brain-cloud interactive CLI for self-hosted deployment' },
+      { type: 'added', text: 'Complete self-hosting docs: Quick Start, OAuth Setup, Configuration Reference' },
+      { type: 'added', text: 'E2E deploy test script and GitHub Actions workflow' },
+      { type: 'added', text: 'AGPL-3.0 license with NOTICE file' },
+      { type: 'added', text: 'DEPLOY.md comprehensive deployment guide' },
+      { type: 'improved', text: 'Landing page redesigned for open-source positioning' },
+      { type: 'improved', text: 'In-app docs with full Self-Hosting category' },
+      { type: 'improved', text: 'Centralized AI model constants (TEXT_MODEL, EMBEDDING_MODEL)' },
+    ],
+  },
+  {
+    version: '1.2.0',
+    date: '2026-03-08',
+    title: 'Public Documentation & Install Script v3',
+    description: 'Full public docs site, redesigned installer, improved admin dashboard, and waitlist system.',
+    changes: [
+      { type: 'added', text: 'Public /docs page with getting started guide, core concepts, and full MCP tools reference' },
+      { type: 'added', text: 'Waitlist system with admin approval flow' },
+      { type: 'added', text: 'Sentry error tracking integration' },
+      { type: 'added', text: 'Install script v3 with client detection, modular installation, and idempotency' },
+      { type: 'improved', text: 'Admin dashboard UX with better stats and user management' },
+      { type: 'improved', text: 'Docs page UX — visual hierarchy, breadcrumbs, proper spacing, back-to-top button' },
+      { type: 'improved', text: 'Demo mode with guided tour and sample data' },
+      { type: 'improved', text: 'Markdown rendering in content lists' },
+      { type: 'fixed', text: 'D1 datetime parsing now treats timestamps as UTC' },
+      { type: 'fixed', text: 'Backend /docs route renamed to /api-docs to avoid SPA routing conflict' },
+    ],
+  },
+  {
+    version: '1.1.0',
+    date: '2026-03-08',
+    title: 'Project Tracking & Auto-Update',
+    description: 'All Brain MCP write tools now support project tracking, sessions return richer project-scoped context, and a new auto-update system keeps client config in sync.',
+    changes: [
+      { type: 'added', text: 'Project parameter on all write tools (thoughts, decisions, sessions, sentiment, DX events, conversations)' },
+      { type: 'added', text: 'Project-scoped session context with recent thoughts, decisions, blockers, and last session summary' },
+      { type: 'added', text: 'Pending handoffs surfaced on session start for target project' },
+      { type: 'added', text: 'brain_check_update tool for automatic client config updates' },
+      { type: 'improved', text: 'Session start returns decision rationale in context' },
+      { type: 'fixed', text: 'DX events now correctly store project_id' },
+    ],
+  },
+  {
+    version: '1.0.0',
+    date: '2026-03-07',
+    title: 'Brain Cloud Launch',
+    description: 'Initial public release with full feature set.',
+    changes: [
+      { type: 'added', text: 'MCP server for Claude Code and Claude Desktop integration' },
+      { type: 'added', text: 'Thought, Decision, and Session tracking' },
+      { type: 'added', text: 'AI-powered coaching and daily digests' },
+      { type: 'added', text: '"Ask Your Brain" RAG conversational search' },
+      { type: 'added', text: 'GitHub integration with repo sync' },
+      { type: 'added', text: 'Team collaboration with invites and roles' },
+      { type: 'added', text: 'Cross-project insights and pattern detection' },
+      { type: 'added', text: 'Data export (JSON/CSV)' },
+      { type: 'added', text: 'Admin dashboard and user management' },
+      { type: 'added', text: 'API key scoping with read/write/admin permissions' },
+      { type: 'added', text: 'Rate limiting and structured error handling' },
+      { type: 'added', text: 'GDPR-compliant account deletion' },
+    ],
+  },
+]
