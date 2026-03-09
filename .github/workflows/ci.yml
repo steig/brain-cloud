@@ -42,7 +42,8 @@ jobs:
         run: pnpm --filter brain-worker test
 
   deploy:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    # Only deploy from the private repo — skip on forks and the public OSS repo
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop') && github.repository == 'steig/brain-cloud-private'
     needs: [lint-and-typecheck, test]
     runs-on: ubuntu-latest
     steps:
