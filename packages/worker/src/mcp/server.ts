@@ -49,7 +49,8 @@ async function generateWithAI(env: Env, prompt: string): Promise<string> {
       max_tokens: 1024,
     })
     return (result as any)?.response || ''
-  } catch {
+  } catch (error) {
+    console.error('AI generation failed:', error)
     return ''
   }
 }
@@ -1180,7 +1181,7 @@ async function handleToolCall(
       try {
         const prompt = `You are an AI coaching assistant. Based on this data, provide 3-5 specific, actionable coaching tips.\n\nData:\n${JSON.stringify(dbInsights, null, 2)}\n\nFormat: 1. [Observation] -> [Suggestion]`
         coachingAdvice = await generateWithAI(env, prompt)
-      } catch { /* AI unavailable */ }
+      } catch (error) { console.error('AI generation failed (coaching insights):', error) }
 
       return { success: true, insights: dbInsights, coaching_advice: coachingAdvice, period_days: days }
     }
@@ -1443,7 +1444,7 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
     )
   }
 
-  const keyScope = (user.key_scope || 'write') as 'read' | 'write' | 'admin'
+  const keyScope = (user.key_scope || 'read') as 'read' | 'write' | 'admin'
 
   const body = await c.req.json()
 

@@ -11,11 +11,10 @@ const VALUE_PROPS = [
 ];
 
 export function WaitlistPage({ user }: { user: AuthUser }) {
-  const handleLogout = () => {
-    document.cookie = "brain_access=; Max-Age=0; path=/";
-    document.cookie = "brain_refresh=; Max-Age=0; path=/";
-    window.location.href = "/login";
-  };
+  const handleLogout = async () => {
+    await fetch('/auth/logout', { method: 'POST', credentials: 'include' })
+    window.location.href = '/login'
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">

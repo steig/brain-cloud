@@ -1,6 +1,7 @@
 import type { Env } from '../types'
 
 const EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5'
+const MIN_SEMANTIC_SCORE = 0.65
 
 interface EmbeddingMetadata {
   type: 'thought' | 'decision'
@@ -64,5 +65,8 @@ export async function vectorSearch(
     returnMetadata: 'none',
   })
 
-  return results.matches.map((m) => ({ id: m.id, score: m.score }))
+  // filter matches by score before returning
+  return results.matches
+    .filter((m) => m.score >= MIN_SEMANTIC_SCORE)
+    .map((m) => ({ id: m.id, score: m.score }))
 }

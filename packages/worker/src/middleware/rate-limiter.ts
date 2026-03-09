@@ -1,19 +1,24 @@
 import type { Context, Next } from 'hono'
 import type { Env, Variables } from '../types'
+import { hashToken } from '../auth/jwt'
 
 interface RateLimitConfig {
   /** Max requests per window */
   limit: number
   /** Window size in seconds */
   windowSeconds: number
-  /** Key function — returns the rate limit key (e.g., user ID, IP) */
-  keyFn: (c: Context<{ Bindings: Env; Variables: Variables }>) => string
+  /** Key function — returns the rate limit key (e.g., hashed API key, user ID, IP) */
+  keyFn: (c: Context<{ Bindings: Env; Variables: Variables }>) => string | Promise<string>
 }
 
 const DEFAULT_CONFIG: RateLimitConfig = {
   limit: 100,
   windowSeconds: 60,
-  keyFn: (c) => {
+  keyFn: async (c) => {
+    const apiKey = c.req.header('X-API-Key')
+    if (apiKey) {
+      return `key:${await hashToken(apiKey)}`
+    }
     const user = c.get('user')
     return user?.id ?? c.req.header('cf-connecting-ip') ?? 'anonymous'
   },
@@ -28,7 +33,7 @@ export function rateLimiter(config: Partial<RateLimitConfig> = {}) {
   const { limit, windowSeconds, keyFn } = { ...DEFAULT_CONFIG, ...config }
 
   return async (c: Context<{ Bindings: Env; Variables: Variables }>, next: Next) => {
-    const key = keyFn(c)
+    const key = await keyFn(c)
     const windowStart = Math.floor(Date.now() / (windowSeconds * 1000))
     const window = `${windowStart}`
     const fullKey = `${key}:${c.req.path}`

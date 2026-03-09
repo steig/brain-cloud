@@ -48,7 +48,7 @@ export const authMiddleware = createMiddleware<{
         email: user.email ?? undefined,
         avatar: user.avatar_url ?? undefined,
         system_role: (user.system_role as 'user' | 'admin' | 'super_admin') || 'user',
-        key_scope: keyScope ?? 'write',
+        key_scope: keyScope ?? 'read',
       })
       return next()
     }
