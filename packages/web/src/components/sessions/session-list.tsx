@@ -108,7 +108,7 @@ export function SessionList({ sessions, isLoading }: SessionListProps) {
                       Score: {session.scores.overall_score?.toFixed(1)}
                     </Badge>
                   )}
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggle(session.id)}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Toggle session details" onClick={() => toggle(session.id)}>
                     {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                 </div>

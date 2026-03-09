@@ -8,17 +8,6 @@ import { LoginPage } from "@/components/auth/login";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { CommandPalette } from "@/components/layout/command-palette";
-import { DashboardPage } from "@/components/dashboard/page";
-import { ThoughtsPage } from "@/components/thoughts/page";
-import { DecisionsPage } from "@/components/decisions/page";
-import { SessionsPage } from "@/components/sessions/page";
-import { SettingsPage } from "@/components/settings/page";
-import { HandoffsPage } from "@/components/handoffs/page";
-import { QuickEntryPage } from "@/components/quick-entry/page";
-import { ReviewsPage } from "@/components/decisions/reviews-page";
-import { GitHubPage } from "@/components/github/page";
-import { TeamsPage } from "@/components/teams/page";
-import { ProjectsPage } from "@/components/projects/page";
 import { PrivacyPolicyPage } from "@/components/legal/privacy-policy";
 import { TermsOfServicePage } from "@/components/legal/terms-of-service";
 import { LandingPage } from "@/components/marketing/landing-page";
@@ -29,7 +18,18 @@ import { isMarketingSite } from "@/lib/config";
 import { trackPageView } from "@/lib/analytics";
 import { PageSkeleton } from "@/components/shared/page-skeleton";
 
-// Lazy-loaded heavy routes
+// Lazy-loaded routes — keeps initial bundle small
+const DashboardPage = lazy(() => import("./components/dashboard/page").then(m => ({ default: m.DashboardPage })));
+const ThoughtsPage = lazy(() => import("./components/thoughts/page").then(m => ({ default: m.ThoughtsPage })));
+const DecisionsPage = lazy(() => import("./components/decisions/page").then(m => ({ default: m.DecisionsPage })));
+const ReviewsPage = lazy(() => import("./components/decisions/reviews-page").then(m => ({ default: m.ReviewsPage })));
+const SessionsPage = lazy(() => import("./components/sessions/page").then(m => ({ default: m.SessionsPage })));
+const SettingsPage = lazy(() => import("./components/settings/page").then(m => ({ default: m.SettingsPage })));
+const HandoffsPage = lazy(() => import("./components/handoffs/page").then(m => ({ default: m.HandoffsPage })));
+const QuickEntryPage = lazy(() => import("./components/quick-entry/page").then(m => ({ default: m.QuickEntryPage })));
+const GitHubPage = lazy(() => import("./components/github/page").then(m => ({ default: m.GitHubPage })));
+const TeamsPage = lazy(() => import("./components/teams/page").then(m => ({ default: m.TeamsPage })));
+const ProjectsPage = lazy(() => import("./components/projects/page").then(m => ({ default: m.ProjectsPage })));
 const AdminDashboardPage = lazy(() => import("./components/admin/dashboard-page").then(m => ({ default: m.AdminDashboardPage })));
 const AdminUsersPage = lazy(() => import("./components/admin/users-page").then(m => ({ default: m.AdminUsersPage })));
 const CoachingPage = lazy(() => import("./components/coaching/page").then(m => ({ default: m.CoachingPage })));
@@ -90,29 +90,29 @@ function AppLayout() {
           <Header />
           <main className="flex-1 overflow-auto p-4 pb-18 md:p-6 md:pb-6">
           <Routes>
-            <Route index element={<DashboardPage />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="quick-entry" element={<QuickEntryPage />} />
-            <Route path="thoughts" element={<ThoughtsPage />} />
-            <Route path="decisions" element={<DecisionsPage />} />
-            <Route path="decisions/reviews" element={<ReviewsPage />} />
-            <Route path="sessions" element={<SessionsPage />} />
-            <Route path="handoffs" element={<HandoffsPage />} />
+            <Route index element={<LazyRoute><DashboardPage /></LazyRoute>} />
+            <Route path="dashboard" element={<LazyRoute><DashboardPage /></LazyRoute>} />
+            <Route path="quick-entry" element={<LazyRoute><QuickEntryPage /></LazyRoute>} />
+            <Route path="thoughts" element={<LazyRoute><ThoughtsPage /></LazyRoute>} />
+            <Route path="decisions" element={<LazyRoute><DecisionsPage /></LazyRoute>} />
+            <Route path="decisions/reviews" element={<LazyRoute><ReviewsPage /></LazyRoute>} />
+            <Route path="sessions" element={<LazyRoute><SessionsPage /></LazyRoute>} />
+            <Route path="handoffs" element={<LazyRoute><HandoffsPage /></LazyRoute>} />
             <Route path="ask" element={<LazyRoute><AskPage /></LazyRoute>} />
             <Route path="insights" element={<LazyRoute><InsightsPage /></LazyRoute>} />
             <Route path="coaching" element={<LazyRoute><CoachingPage /></LazyRoute>} />
             <Route path="calendar" element={<LazyRoute><CalendarPage /></LazyRoute>} />
-            <Route path="teams" element={<TeamsPage />} />
+            <Route path="teams" element={<LazyRoute><TeamsPage /></LazyRoute>} />
             <Route path="teams/:id/admin" element={<LazyRoute><TeamAdminPage /></LazyRoute>} />
             <Route path="teams/:id/workspace" element={<LazyRoute><TeamWorkspacePage /></LazyRoute>} />
             <Route path="teams/:id/coaching" element={<LazyRoute><TeamCoachingPage /></LazyRoute>} />
-            <Route path="projects" element={<ProjectsPage />} />
-            <Route path="github" element={<GitHubPage />} />
+            <Route path="projects" element={<LazyRoute><ProjectsPage /></LazyRoute>} />
+            <Route path="github" element={<LazyRoute><GitHubPage /></LazyRoute>} />
             <Route path="admin" element={<LazyRoute><AdminDashboardPage /></LazyRoute>} />
             <Route path="admin/dashboard" element={<LazyRoute><AdminDashboardPage /></LazyRoute>} />
             <Route path="admin/users" element={<LazyRoute><AdminUsersPage /></LazyRoute>} />
             <Route path="analytics" element={<LazyRoute><AnalyticsPage /></LazyRoute>} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="settings" element={<LazyRoute><SettingsPage /></LazyRoute>} />
           </Routes>
           </main>
         </div>

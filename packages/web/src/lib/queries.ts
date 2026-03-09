@@ -110,7 +110,10 @@ export function useCreateThought() {
   return useMutation({
     mutationFn: (data: Partial<Thought>) =>
       api.post<Thought>("/api/thoughts", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["thoughts"] }),
+    onSuccess: () => qc.invalidateQueries({
+      queryKey: ["thoughts"],
+      predicate: (query) => !query.queryKey.includes("related"),
+    }),
   });
 }
 
@@ -119,7 +122,13 @@ export function useUpdateThought() {
   return useMutation({
     mutationFn: ({ id, ...data }: Partial<Thought> & { id: string }) =>
       api.patch<void>(`/api/thoughts?id=eq.${id}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["thoughts"] }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({
+        queryKey: ["thoughts"],
+        predicate: (query) => !query.queryKey.includes("related"),
+      });
+      qc.invalidateQueries({ queryKey: ["thoughts", vars.id, "related"], exact: true });
+    },
   });
 }
 
@@ -127,7 +136,10 @@ export function useDeleteThought() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete<void>(`/api/thoughts?id=eq.${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["thoughts"] }),
+    onSuccess: () => qc.invalidateQueries({
+      queryKey: ["thoughts"],
+      predicate: (query) => !query.queryKey.includes("related"),
+    }),
   });
 }
 
@@ -145,7 +157,10 @@ export function useCreateDecision() {
   return useMutation({
     mutationFn: (data: Partial<Decision>) =>
       api.post<Decision>("/api/decisions", data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions"] }),
+    onSuccess: () => qc.invalidateQueries({
+      queryKey: ["decisions"],
+      predicate: (query) => !query.queryKey.includes("related"),
+    }),
   });
 }
 
@@ -154,7 +169,13 @@ export function useUpdateDecision() {
   return useMutation({
     mutationFn: ({ id, ...data }: Partial<Decision> & { id: string }) =>
       api.patch<void>(`/api/decisions?id=eq.${id}`, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["decisions"] }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({
+        queryKey: ["decisions"],
+        predicate: (query) => !query.queryKey.includes("related"),
+      });
+      qc.invalidateQueries({ queryKey: ["decisions", vars.id, "related"], exact: true });
+    },
   });
 }
 
@@ -318,9 +339,9 @@ export function useCreateDecisionReview() {
       would_decide_same?: boolean;
     }) => api.post<{ id: string }>("/api/decisions/reviews", data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["decision-reviews"] });
-      qc.invalidateQueries({ queryKey: ["decisions-needing-review"] });
-      qc.invalidateQueries({ queryKey: ["review-stats"] });
+      qc.invalidateQueries({ queryKey: ["decision-reviews"], exact: true });
+      qc.invalidateQueries({ queryKey: ["decisions-needing-review"], exact: true });
+      qc.invalidateQueries({ queryKey: ["review-stats"], exact: true });
     },
   });
 }
@@ -441,7 +462,7 @@ export function useCreateTeam() {
   return useMutation({
     mutationFn: (data: { name: string; slug: string; description?: string }) =>
       teamsApi.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"], exact: true }),
   });
 }
 
@@ -450,7 +471,10 @@ export function useUpdateTeam() {
   return useMutation({
     mutationFn: ({ id, ...data }: { id: string; name?: string; description?: string }) =>
       teamsApi.update(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"] }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["teams"], exact: true });
+      qc.invalidateQueries({ queryKey: ["teams", vars.id], exact: true });
+    },
   });
 }
 
@@ -458,7 +482,7 @@ export function useDeleteTeam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => teamsApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["teams"], exact: true }),
   });
 }
 
@@ -573,10 +597,10 @@ export function useUpdateUserRole() {
   return useMutation({
     mutationFn: ({ id, system_role }: { id: string; system_role: string }) =>
       admin.updateRole(id, system_role),
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['admin-users'] })
-      qc.invalidateQueries({ queryKey: ['admin-user'] })
-      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+      qc.invalidateQueries({ queryKey: ['admin-user', vars.id], exact: true })
+      qc.invalidateQueries({ queryKey: ['admin-stats'], exact: true })
     },
   })
 }
@@ -585,10 +609,10 @@ export function useApproveUser() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => admin.approveUser(id),
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['admin-users'] })
-      qc.invalidateQueries({ queryKey: ['admin-user'] })
-      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+      qc.invalidateQueries({ queryKey: ['admin-user', vars], exact: true })
+      qc.invalidateQueries({ queryKey: ['admin-stats'], exact: true })
     },
   })
 }

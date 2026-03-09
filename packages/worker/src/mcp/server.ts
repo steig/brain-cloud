@@ -11,6 +11,7 @@ import { parsePeriod, formatDate } from './utils'
 import { scoreSession } from './scoring'
 import { getDecisionTemplate, listDecisionTemplates } from './templates'
 import { vectorSearch } from '../db/vectorize'
+import { trackAiUsage, type AiOperation } from '../ai-costs'
 
 export const SERVER_VERSION = '1.1.0'
 
@@ -41,14 +42,28 @@ interface McpUser {
 // Workers AI helper
 // ═══════════════════════════════════════════════════════════════════
 
-async function generateWithAI(env: Env, prompt: string): Promise<string> {
+async function generateWithAI(
+  env: Env,
+  prompt: string,
+  tracking?: { db: D1Database; userId: string; operation: AiOperation },
+): Promise<string> {
   if (!env.AI) return ''
   try {
     const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct' as any, {
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 1024,
     })
-    return (result as any)?.response || ''
+    const response = (result as any)?.response || ''
+    if (response && tracking) {
+      trackAiUsage(tracking.db, {
+        userId: tracking.userId,
+        operation: tracking.operation,
+        inputTokens: Math.ceil(prompt.length / 4),
+        outputTokens: Math.ceil(response.length / 4),
+        model: '@cf/meta/llama-3.1-8b-instruct',
+      }).catch((err) => console.error('AI usage tracking failed:', err))
+    }
+    return response
   } catch (error) {
     console.error('AI generation failed:', error)
     return ''
@@ -1022,7 +1037,7 @@ async function handleToolCall(
         const thoughtsText = thoughts.map(t => `- [${t.type}] ${t.content}`).join('\n')
         const decisionsText = decisions.map(d => `- ${d.title}: chose "${d.chosen}"`).join('\n')
         const prompt = `You are summarizing a developer's daily activity. Write a brief, friendly daily digest (2-3 paragraphs max).\n\nToday's Activity:\nTHOUGHTS (${stats.thoughts}): ${thoughtsText || 'None'}\nDECISIONS (${stats.decisions}): ${decisionsText || 'None'}\nSESSIONS (${stats.sessions})\n\nWrite a concise summary. Start with "Here's what you worked on today:"`
-        summary = await generateWithAI(env, prompt) || `Today: ${stats.thoughts} thoughts, ${stats.decisions} decisions, ${stats.sessions} sessions.`
+        summary = await generateWithAI(env, prompt, { db, userId, operation: 'digest' }) || `Today: ${stats.thoughts} thoughts, ${stats.decisions} decisions, ${stats.sessions} sessions.`
       }
 
       const formattedDate = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
@@ -1067,7 +1082,7 @@ async function handleToolCall(
 
       const prompt = `You are a personal AI development coach. Based on the data below, provide specific, actionable coaching across 5 dimensions. Be direct and reference actual numbers.\n\nDATA FROM LAST ${days} DAYS:\n${JSON.stringify(coachingData, null, 2)}\n\nProvide coaching in this format:\n## Productivity & Goals\n[2-3 sentences]\n## Decision Making\n[2-3 sentences]\n## AI Collaboration\n[2-3 sentences]\n## Wellbeing & Flow\n[2-3 sentences]\n## Growth Trajectory\n[2-3 sentences]\n\nEnd with one sentence of encouragement.`
 
-      let coaching = await generateWithAI(env, prompt)
+      let coaching = await generateWithAI(env, prompt, { db, userId, operation: 'coaching' })
       if (!coaching) {
         const s = coachingData.sessions as any
         const t = coachingData.thoughts as any
@@ -1180,7 +1195,7 @@ async function handleToolCall(
       let coachingAdvice: string | null = null
       try {
         const prompt = `You are an AI coaching assistant. Based on this data, provide 3-5 specific, actionable coaching tips.\n\nData:\n${JSON.stringify(dbInsights, null, 2)}\n\nFormat: 1. [Observation] -> [Suggestion]`
-        coachingAdvice = await generateWithAI(env, prompt)
+        coachingAdvice = await generateWithAI(env, prompt, { db, userId, operation: 'coaching' })
       } catch (error) { console.error('AI generation failed (coaching insights):', error) }
 
       return { success: true, insights: dbInsights, coaching_advice: coachingAdvice, period_days: days }

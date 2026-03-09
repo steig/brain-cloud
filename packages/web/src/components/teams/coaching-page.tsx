@@ -121,7 +121,7 @@ export function TeamCoachingPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link to={`/teams/${id}/workspace`}>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="Back to workspace">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
@@ -151,6 +151,7 @@ export function TeamCoachingPage() {
           <Button
             variant="outline"
             size="icon"
+            aria-label="Refresh coaching data"
             onClick={handleRefresh}
             disabled={isFetching}
           >

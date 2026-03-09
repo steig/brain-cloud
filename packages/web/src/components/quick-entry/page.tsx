@@ -259,7 +259,7 @@ function DecisionTab() {
                 className="flex-1"
               />
               {options.length > 1 && (
-                <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(i)}>
+                <Button type="button" variant="ghost" size="icon" aria-label="Remove option" onClick={() => removeOption(i)}>
                   <X className="h-4 w-4" />
                 </Button>
               )}

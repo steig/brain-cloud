@@ -44,6 +44,12 @@ export async function deleteEmbedding(env: Env, id: string): Promise<void> {
   await env.VECTORIZE.deleteByIds([id])
 }
 
+/** Delete multiple embeddings from Vectorize */
+export async function deleteVectors(env: Env, ids: string[]): Promise<void> {
+  if (!env.VECTORIZE || ids.length === 0) return
+  await env.VECTORIZE.deleteByIds(ids)
+}
+
 /** Search Vectorize for similar entries, filtered by userId */
 export async function vectorSearch(
   env: Env,

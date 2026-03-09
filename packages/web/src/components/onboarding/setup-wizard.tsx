@@ -128,7 +128,7 @@ export function SetupWizard({ onDismiss }: SetupWizardProps) {
             <CardTitle>Connect Your AI Tools</CardTitle>
             <CardDescription>Set up the MCP server to use Brain Cloud from Claude Code or other AI clients.</CardDescription>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleDismiss} title="Dismiss">
+          <Button variant="ghost" size="icon" onClick={handleDismiss} title="Dismiss" aria-label="Dismiss setup wizard">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -175,7 +175,7 @@ export function SetupWizard({ onDismiss }: SetupWizardProps) {
               <Label>Your API key</Label>
               <div className="flex gap-2">
                 <Input value={createdKey} readOnly className="font-mono text-sm" />
-                <Button variant="outline" size="icon" onClick={() => handleCopy(createdKey, "key")}>
+                <Button variant="outline" size="icon" aria-label="Copy API key" onClick={() => handleCopy(createdKey, "key")}>
                   {copied === "key" ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>

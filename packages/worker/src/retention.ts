@@ -11,14 +11,20 @@
  * Retention rules:
  * - dx_events: delete after 90 days
  * - auth_sessions: delete expired sessions older than 30 days
+ * - soft-deleted thoughts/decisions: purge Vectorize embeddings for any
+ *   records deleted more than 24 hours ago (safety buffer)
  *
  * TODO: Archive to R2 before deletion for audit trail
  */
+
+import type { Env } from './types'
+import { deleteVectors } from './db/vectorize'
 
 export interface RetentionResult {
   dx_events_deleted: number
   auth_sessions_deleted: number
   rate_limits_deleted: number
+  vectorize_embeddings_deleted: number
 }
 
 const BATCH_SIZE = 1000
@@ -49,7 +55,7 @@ async function deleteBatched(
 /**
  * Run data retention cleanup. Called by the scheduled cron trigger.
  */
-export async function handleRetention(db: D1Database): Promise<RetentionResult> {
+export async function handleRetention(db: D1Database, env?: Env): Promise<RetentionResult> {
   const now = new Date()
 
   // dx_events older than 90 days
@@ -75,9 +81,33 @@ export async function handleRetention(db: D1Database): Promise<RetentionResult> 
     [String(Math.floor(Date.now() / 1000) - 3600)],
   )
 
+  // Purge Vectorize embeddings for soft-deleted thoughts/decisions (>24h buffer)
+  let vectorize_embeddings_deleted = 0
+  if (env) {
+    const deletedCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+
+    const deletedThoughts = await db.prepare(
+      `SELECT id FROM thoughts WHERE deleted_at IS NOT NULL AND deleted_at < ?`
+    ).bind(deletedCutoff).all<{ id: string }>()
+
+    const deletedDecisions = await db.prepare(
+      `SELECT id FROM decisions WHERE deleted_at IS NOT NULL AND deleted_at < ?`
+    ).bind(deletedCutoff).all<{ id: string }>()
+
+    const ids = [
+      ...(deletedThoughts.results ?? []).map((r) => r.id),
+      ...(deletedDecisions.results ?? []).map((r) => r.id),
+    ]
+
+    if (ids.length > 0) {
+      await deleteVectors(env, ids)
+      vectorize_embeddings_deleted = ids.length
+    }
+  }
+
   console.log(
-    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h)`,
+    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h), ${vectorize_embeddings_deleted} vectorize embeddings (soft-deleted >24h)`,
   )
 
-  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted }
+  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted, vectorize_embeddings_deleted }
 }

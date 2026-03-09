@@ -118,6 +118,7 @@ export function HandoffList({ handoffs, isLoading }: HandoffListProps) {
                     variant="ghost"
                     size="icon"
                     className="h-7 w-7"
+                    aria-label="Toggle details"
                     onClick={() => toggle(handoff.id)}
                   >
                     {isOpen ? (

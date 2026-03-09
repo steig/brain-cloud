@@ -1,6 +1,9 @@
 // D1 query layer — replaces PostgREST + stored procedures
 // All functions take D1Database and userId, enforce user_id WHERE clauses
 
+import type { Env } from '../types'
+import { deleteEmbedding } from './vectorize'
+
 // ═══════════════════════════════════════════════════════════════════
 // Helpers
 // ═══════════════════════════════════════════════════════════════════
@@ -278,10 +281,11 @@ export async function updateThought(
   ).bind(...binds).run()
 }
 
-export async function deleteThought(db: D1Database, userId: string, id: string): Promise<void> {
+export async function deleteThought(db: D1Database, userId: string, id: string, env?: Env): Promise<void> {
   await db.prepare(
     "UPDATE thoughts SET deleted_at = datetime('now') WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
   ).bind(id, userId).run()
+  if (env) await deleteEmbedding(env, id)
 }
 
 export async function countThoughts(
@@ -441,10 +445,11 @@ export async function updateDecision(
   ).bind(...binds).run()
 }
 
-export async function deleteDecision(db: D1Database, userId: string, id: string): Promise<void> {
+export async function deleteDecision(db: D1Database, userId: string, id: string, env?: Env): Promise<void> {
   await db.prepare(
     "UPDATE decisions SET deleted_at = datetime('now'), updated_at = datetime('now') WHERE id = ? AND user_id = ? AND deleted_at IS NULL"
   ).bind(id, userId).run()
+  if (env) await deleteEmbedding(env, id)
 }
 
 export async function countDecisions(

@@ -46,7 +46,7 @@ export function TeamAdminPage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-4">
         <Link to="/teams">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="Back to teams">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>

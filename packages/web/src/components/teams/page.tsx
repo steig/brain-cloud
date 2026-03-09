@@ -291,6 +291,7 @@ function TeamDetail({
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7"
+                      aria-label="Remove member"
                       onClick={() =>
                         removeMember.mutate({
                           teamId: team.id,
@@ -331,6 +332,7 @@ function TeamDetail({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
+                        aria-label="Cancel invite"
                         onClick={() =>
                           cancelInvite.mutate({
                             teamId: team.id,

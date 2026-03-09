@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env, Variables } from '../types'
 import { vectorSearch } from '../db/vectorize'
+import { trackAiUsage } from '../ai-costs'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -81,6 +82,16 @@ ${contextBlock}`
     messages,
     stream: false,
   })) as { response: string }
+
+  // Track RAG generation cost (fire-and-forget)
+  const inputText = messages.map((m) => m.content).join(' ')
+  trackAiUsage(c.env.DB, {
+    userId: user.id,
+    operation: 'rag_generation',
+    inputTokens: Math.ceil(inputText.length / 4),
+    outputTokens: Math.ceil((aiResponse.response || '').length / 4),
+    model: '@cf/meta/llama-3.1-8b-instruct',
+  }).catch((err) => console.error('AI usage tracking failed:', err))
 
   return c.json({
     answer: aiResponse.response,

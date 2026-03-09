@@ -437,10 +437,10 @@ export function CalendarPage() {
       {/* Navigation */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={navigatePrev}>
+          <Button variant="outline" size="icon" aria-label="Previous" onClick={navigatePrev}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={navigateNext}>
+          <Button variant="outline" size="icon" aria-label="Next" onClick={navigateNext}>
             <ChevronRight className="h-4 w-4" />
           </Button>
           <h2 className="text-lg font-semibold ml-2">

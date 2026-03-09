@@ -26,6 +26,7 @@ export default defineConfig({
           "vendor-charts": ["recharts"],
           "vendor-router": ["react-router-dom"],
           "vendor-query": ["@tanstack/react-query"],
+          "vendor-sentry": ["@sentry/react"],
         },
       },
     },

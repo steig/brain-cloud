@@ -155,7 +155,7 @@ export function SettingsPage() {
                     </DialogHeader>
                     <div className="flex gap-2">
                       <Input value={createdKey} readOnly className="font-mono text-sm" />
-                      <Button variant="outline" size="icon" onClick={copyKey}>
+                      <Button variant="outline" size="icon" aria-label="Copy API key" onClick={copyKey}>
                         <Copy className="h-4 w-4" />
                       </Button>
                     </div>
@@ -258,6 +258,7 @@ export function SettingsPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Revoke API key"
                       onClick={() => handleRevoke(key.id)}
                       disabled={revokeKey.isPending}
                     >
