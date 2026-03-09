@@ -137,6 +137,9 @@ export interface ThoughtRow {
   ai_model: string | null
   visibility: string | null
   created_at: string
+  strength?: number
+  access_count?: number
+  last_accessed_at?: string | null
   project_name?: string | null
   project_repo_url?: string | null
   user_name?: string | null
@@ -328,6 +331,9 @@ export interface DecisionRow {
   ai_model: string | null
   created_at: string
   updated_at: string
+  strength?: number
+  access_count?: number
+  last_accessed_at?: string | null
   project_name?: string | null
   project_repo_url?: string | null
   user_name?: string | null
@@ -1535,7 +1541,7 @@ export async function incrementAccessCount(
   const table = type === 'thought' ? 'thoughts' : 'decisions'
   const placeholders = ids.map(() => '?').join(',')
   await db.prepare(
-    `UPDATE ${table} SET access_count = access_count + 1, last_accessed_at = datetime('now')
+    `UPDATE ${table} SET access_count = access_count + 1, last_accessed_at = datetime('now'), strength = 1.0
      WHERE id IN (${placeholders})`
   ).bind(...ids).run()
 }
@@ -1553,6 +1559,229 @@ export async function getStaleDecisions(
      ORDER BY created_at ASC LIMIT ?`
   ).bind(userId, cutoff, limit).all<DecisionRow>()
   return result.results ?? []
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Cognitive Decay (#136)
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Piecewise hybrid decay (Wixted 1991):
+ * - t < 3 days: exponential D(t) = e^(-λt)
+ * - t ≥ 3 days: power-law D(t) = e^(-λ·3) · (t/3)^(-β)
+ * - LTP (access_count ≥ 10): slower decay parameters
+ * - Recency boost: up to +0.30 if accessed within 7 days
+ * - Floor: 0.05
+ */
+export function computeStrength(
+  createdAt: string,
+  accessCount: number,
+  lastAccessedAt: string | null,
+  now?: Date,
+): number {
+  const currentTime = now ?? new Date()
+  const ageMs = currentTime.getTime() - new Date(createdAt).getTime()
+  const ageDays = Math.max(ageMs / 86_400_000, 0)
+
+  // LTP: frequently-accessed memories decay slower
+  const potentiated = accessCount >= 10
+  const lambda = potentiated ? 0.347 : 0.693
+  const beta = potentiated ? 0.3 : 0.5
+
+  let decay: number
+  if (ageDays < 3) {
+    decay = Math.exp(-lambda * ageDays)
+  } else {
+    const expAt3 = Math.exp(-lambda * 3)
+    decay = expAt3 * Math.pow(ageDays / 3, -beta)
+  }
+
+  // Recency boost: additive up to +0.30 if last accessed within 7 days
+  let recencyBoost = 0
+  if (lastAccessedAt) {
+    const lastAccessMs = currentTime.getTime() - new Date(lastAccessedAt).getTime()
+    const lastAccessDays = Math.max(lastAccessMs / 86_400_000, 0)
+    if (lastAccessDays < 7) {
+      recencyBoost = 0.30 * (1 - lastAccessDays / 7)
+    }
+  }
+
+  return Math.max(Math.min(decay + recencyBoost, 1.0), 0.05)
+}
+
+interface DecayRow {
+  id: string
+  created_at: string
+  access_count: number
+  last_accessed_at: string | null
+}
+
+/**
+ * Batch recalculate strength for all thoughts + decisions.
+ * Processes in batches of 500 to stay within D1 limits.
+ */
+export async function recalculateStrength(db: D1Database): Promise<number> {
+  const now = new Date()
+  let totalUpdated = 0
+
+  for (const table of ['thoughts', 'decisions'] as const) {
+    let lastId = ''
+    const batchSize = 500
+    while (true) {
+      const rows = await db.prepare(
+        `SELECT id, created_at, access_count, last_accessed_at FROM ${table}
+         WHERE deleted_at IS NULL AND strength > 0.06 AND id > ?
+         ORDER BY id LIMIT ?`
+      ).bind(lastId, batchSize).all<DecayRow>()
+
+      const records = rows.results ?? []
+      if (!records.length) break
+
+      // Batch UPDATE via db.batch() — parameterized, no SQL interpolation
+      const stmts = records.map(row => {
+        const strength = computeStrength(row.created_at, row.access_count, row.last_accessed_at, now)
+        return db.prepare(`UPDATE ${table} SET strength = ? WHERE id = ?`).bind(strength, row.id)
+      })
+      await db.batch(stmts)
+
+      totalUpdated += records.length
+      lastId = records[records.length - 1].id
+      if (records.length < batchSize) break
+    }
+  }
+  return totalUpdated
+}
+
+/**
+ * Fetch strength values for a set of IDs.
+ * Pass typed ID maps to avoid querying both tables unnecessarily.
+ */
+export async function getStrengthMap(
+  db: D1Database,
+  ids: string[],
+  opts?: { thoughtIds?: string[]; decisionIds?: string[] },
+): Promise<Map<string, number>> {
+  if (!ids.length) return new Map()
+
+  const queries: Promise<D1Result<{ id: string; strength: number }>>[] = []
+  const thoughtIds = opts?.thoughtIds ?? ids
+  const decisionIds = opts?.decisionIds ?? ids
+
+  if (thoughtIds.length) {
+    const ph = thoughtIds.map(() => '?').join(',')
+    queries.push(db.prepare(
+      `SELECT id, strength FROM thoughts WHERE id IN (${ph})`
+    ).bind(...thoughtIds).all<{ id: string; strength: number }>())
+  }
+  if (decisionIds.length) {
+    const ph = decisionIds.map(() => '?').join(',')
+    queries.push(db.prepare(
+      `SELECT id, strength FROM decisions WHERE id IN (${ph})`
+    ).bind(...decisionIds).all<{ id: string; strength: number }>())
+  }
+
+  const results = await Promise.all(queries)
+  const map = new Map<string, number>()
+  for (const result of results) {
+    for (const r of result.results ?? []) {
+      map.set(r.id, r.strength)
+    }
+  }
+  return map
+}
+
+export interface MemoryHealthResult {
+  total: number
+  distribution: {
+    strong: number   // > 0.7
+    moderate: number // 0.3–0.7
+    fading: number   // 0.1–0.3
+    dormant: number  // ≤ 0.1
+  }
+  fading: Array<{ id: string; type: string; content: string; strength: number; created_at: string }>
+  potentiated_count: number
+}
+
+/**
+ * Get memory health stats for brain_memory_health tool.
+ */
+export async function getMemoryHealth(
+  db: D1Database,
+  userId: string,
+  threshold = 0.3,
+): Promise<MemoryHealthResult> {
+  // Distribution query
+  const dist = await db.prepare(`
+    SELECT
+      SUM(CASE WHEN strength > 0.7 THEN 1 ELSE 0 END) as strong,
+      SUM(CASE WHEN strength > 0.3 AND strength <= 0.7 THEN 1 ELSE 0 END) as moderate,
+      SUM(CASE WHEN strength > 0.1 AND strength <= 0.3 THEN 1 ELSE 0 END) as fading,
+      SUM(CASE WHEN strength <= 0.1 THEN 1 ELSE 0 END) as dormant,
+      COUNT(*) as total
+    FROM (
+      SELECT strength FROM thoughts WHERE user_id = ? AND deleted_at IS NULL
+      UNION ALL
+      SELECT strength FROM decisions WHERE user_id = ? AND deleted_at IS NULL
+    )
+  `).bind(userId, userId).first<{
+    strong: number; moderate: number; fading: number; dormant: number; total: number
+  }>()
+
+  // Fading memories (below threshold)
+  const fadingThoughts = await db.prepare(
+    `SELECT id, 'thought' as type, content, strength, created_at FROM thoughts
+     WHERE user_id = ? AND deleted_at IS NULL AND strength < ?
+     ORDER BY strength ASC LIMIT 20`
+  ).bind(userId, threshold).all<{ id: string; type: string; content: string; strength: number; created_at: string }>()
+
+  const fadingDecisions = await db.prepare(
+    `SELECT id, 'decision' as type, title as content, strength, created_at FROM decisions
+     WHERE user_id = ? AND deleted_at IS NULL AND strength < ?
+     ORDER BY strength ASC LIMIT 20`
+  ).bind(userId, threshold).all<{ id: string; type: string; content: string; strength: number; created_at: string }>()
+
+  const fading = [...(fadingThoughts.results ?? []), ...(fadingDecisions.results ?? [])]
+    .sort((a, b) => a.strength - b.strength)
+    .slice(0, 20)
+
+  // Potentiated count (access_count >= 10)
+  const pot = await db.prepare(`
+    SELECT COUNT(*) as count FROM (
+      SELECT id FROM thoughts WHERE user_id = ? AND deleted_at IS NULL AND access_count >= 10
+      UNION ALL
+      SELECT id FROM decisions WHERE user_id = ? AND deleted_at IS NULL AND access_count >= 10
+    )
+  `).bind(userId, userId).first<{ count: number }>()
+
+  return {
+    total: dist?.total ?? 0,
+    distribution: {
+      strong: dist?.strong ?? 0,
+      moderate: dist?.moderate ?? 0,
+      fading: dist?.fading ?? 0,
+      dormant: dist?.dormant ?? 0,
+    },
+    fading,
+    potentiated_count: pot?.count ?? 0,
+  }
+}
+
+/**
+ * Count memories with strength below a threshold (for session_start alerts).
+ */
+export async function countFadingMemories(
+  db: D1Database,
+  userId: string,
+  threshold = 0.2,
+): Promise<number> {
+  const result = await db.prepare(`
+    SELECT COUNT(*) as count FROM (
+      SELECT id FROM thoughts WHERE user_id = ? AND deleted_at IS NULL AND strength < ?
+      UNION ALL
+      SELECT id FROM decisions WHERE user_id = ? AND deleted_at IS NULL AND strength < ?
+    )
+  `).bind(userId, threshold, userId, threshold).first<{ count: number }>()
+  return result?.count ?? 0
 }
 
 // ═══════════════════════════════════════════════════════════════════

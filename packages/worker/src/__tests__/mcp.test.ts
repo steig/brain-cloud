@@ -56,7 +56,7 @@ describe('MCP JSON-RPC endpoint', () => {
       const body = await res.json() as { jsonrpc: string; result: { tools: Array<{ name: string }> }; id: number }
       expect(body.jsonrpc).toBe('2.0')
       expect(body.id).toBe(1)
-      expect(body.result.tools.length).toBeGreaterThanOrEqual(28)
+      expect(body.result.tools.length).toBeGreaterThanOrEqual(29)
       const names = body.result.tools.map(t => t.name)
       expect(names).toContain('brain_thought')
       expect(names).toContain('brain_decide')
@@ -347,6 +347,100 @@ describe('MCP JSON-RPC endpoint', () => {
       const result = parseToolResult(body.result) as { success: boolean; templates: unknown }
       expect(result.success).toBe(true)
       expect(result.templates).toBeDefined()
+    })
+  })
+
+  // ── brain_memory_health ────────────────────────────────────────────
+
+  describe('brain_memory_health', () => {
+    it('returns memory health distribution', async () => {
+      const res = await SELF.fetch(mcpRequest(toolCall('brain_memory_health', {})))
+      expect(res.status).toBe(200)
+      const body = await res.json() as { result: { content: Array<{ type: string; text: string }> } }
+      const result = parseToolResult(body.result) as {
+        total_memories: number
+        strength_distribution: { strong: number; moderate: number; fading: number; dormant: number }
+        fading_memories: unknown[]
+        potentiated_count: number
+      }
+      expect(result.total_memories).toBeGreaterThanOrEqual(0)
+      expect(result.strength_distribution).toBeDefined()
+      expect(result.strength_distribution).toHaveProperty('strong')
+      expect(result.strength_distribution).toHaveProperty('moderate')
+      expect(result.strength_distribution).toHaveProperty('fading')
+      expect(result.strength_distribution).toHaveProperty('dormant')
+      expect(result.fading_memories).toBeInstanceOf(Array)
+      expect(typeof result.potentiated_count).toBe('number')
+    })
+
+    it('accepts custom threshold', async () => {
+      const res = await SELF.fetch(mcpRequest(toolCall('brain_memory_health', { threshold: 0.5 })))
+      expect(res.status).toBe(200)
+      const body = await res.json() as { result: { content: Array<{ type: string; text: string }> } }
+      const result = parseToolResult(body.result) as { total_memories: number }
+      expect(result.total_memories).toBeGreaterThanOrEqual(0)
+    })
+  })
+
+  // ── computeStrength unit tests ─────────────────────────────────────
+
+  describe('computeStrength', () => {
+    // Import computeStrength directly for unit testing
+    const getComputeStrength = async () => {
+      const mod = await import('../db/queries')
+      return mod.computeStrength
+    }
+
+    it('returns ~1.0 for brand new memory', async () => {
+      const fn = await getComputeStrength()
+      const now = new Date()
+      const strength = fn(now.toISOString(), 0, null, now)
+      expect(strength).toBeGreaterThan(0.95)
+    })
+
+    it('returns ~0.50 for 1-day-old memory', async () => {
+      const fn = await getComputeStrength()
+      const now = new Date()
+      const created = new Date(now.getTime() - 86_400_000)
+      const strength = fn(created.toISOString(), 0, null, now)
+      expect(strength).toBeGreaterThan(0.40)
+      expect(strength).toBeLessThan(0.60)
+    })
+
+    it('returns low value for 30-day-old unaccessed memory', async () => {
+      const fn = await getComputeStrength()
+      const now = new Date()
+      const created = new Date(now.getTime() - 30 * 86_400_000)
+      const strength = fn(created.toISOString(), 0, null, now)
+      expect(strength).toBeLessThan(0.12)
+      expect(strength).toBeGreaterThanOrEqual(0.05)
+    })
+
+    it('LTP slows decay for heavily accessed memories', async () => {
+      const fn = await getComputeStrength()
+      const now = new Date()
+      const created = new Date(now.getTime() - 30 * 86_400_000)
+      const normal = fn(created.toISOString(), 0, null, now)
+      const ltp = fn(created.toISOString(), 15, null, now)
+      expect(ltp).toBeGreaterThan(normal)
+    })
+
+    it('recency boost increases strength for recently accessed', async () => {
+      const fn = await getComputeStrength()
+      const now = new Date()
+      const created = new Date(now.getTime() - 7 * 86_400_000)
+      const yesterday = new Date(now.getTime() - 86_400_000).toISOString()
+      const withAccess = fn(created.toISOString(), 3, yesterday, now)
+      const withoutAccess = fn(created.toISOString(), 3, null, now)
+      expect(withAccess).toBeGreaterThan(withoutAccess)
+    })
+
+    it('never drops below floor of 0.05', async () => {
+      const fn = await getComputeStrength()
+      const now = new Date()
+      const veryOld = new Date(now.getTime() - 365 * 86_400_000)
+      const strength = fn(veryOld.toISOString(), 0, null, now)
+      expect(strength).toBeGreaterThanOrEqual(0.05)
     })
   })
 })

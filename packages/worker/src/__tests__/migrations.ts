@@ -478,4 +478,10 @@ export const MIGRATION_SQL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_handoffs_to_project ON handoffs(user_id, to_project, status)`,
   `ALTER TABLE api_keys ADD COLUMN scope TEXT NOT NULL DEFAULT 'write' CHECK (scope IN ('read', 'write', 'admin'))`,
   `ALTER TABLE api_keys ADD COLUMN expires_at TEXT`,
+  `ALTER TABLE thoughts ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE thoughts ADD COLUMN last_accessed_at TEXT`,
+  `ALTER TABLE decisions ADD COLUMN access_count INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE decisions ADD COLUMN last_accessed_at TEXT`,
+  `ALTER TABLE thoughts ADD COLUMN strength REAL NOT NULL DEFAULT 1.0`,
+  `ALTER TABLE decisions ADD COLUMN strength REAL NOT NULL DEFAULT 1.0`,
 ]

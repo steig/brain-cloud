@@ -25,6 +25,7 @@ export interface RetentionResult {
   auth_sessions_deleted: number
   rate_limits_deleted: number
   vectorize_embeddings_deleted: number
+  memories_recalculated: number
   weekly_digests_generated: number
 }
 
@@ -106,6 +107,15 @@ export async function handleRetention(db: D1Database, env?: Env): Promise<Retent
     }
   }
 
+  // Cognitive decay: recalculate memory strength (#136)
+  let memories_recalculated = 0
+  try {
+    const { recalculateStrength } = await import('./db/queries')
+    memories_recalculated = await recalculateStrength(db)
+  } catch (err) {
+    console.error('[retention] Strength recalculation failed:', err)
+  }
+
   // Weekly digest generation — run on Sundays
   let weekly_digests_generated = 0
   const dayOfWeek = now.getUTCDay()
@@ -147,8 +157,8 @@ export async function handleRetention(db: D1Database, env?: Env): Promise<Retent
   }
 
   console.log(
-    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h), ${vectorize_embeddings_deleted} vectorize embeddings (soft-deleted >24h), ${weekly_digests_generated} weekly digests generated`,
+    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h), ${vectorize_embeddings_deleted} vectorize embeddings (soft-deleted >24h), ${memories_recalculated} memories decayed, ${weekly_digests_generated} weekly digests generated`,
   )
 
-  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted, vectorize_embeddings_deleted, weekly_digests_generated }
+  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted, vectorize_embeddings_deleted, memories_recalculated, weekly_digests_generated }
 }

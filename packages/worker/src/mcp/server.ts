@@ -590,6 +590,16 @@ const TOOLS = [
       },
     },
   },
+  {
+    name: 'brain_memory_health',
+    description: 'Show memory strength distribution and fading memories. Memories decay naturally over time — frequently accessed ones are stronger. Distribution buckets are fixed (strong >0.7, moderate 0.3-0.7, fading 0.1-0.3, dormant <=0.1). The threshold parameter controls which memories appear in the fading_memories detail list.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        threshold: { type: 'number', description: 'Show memories below this strength in fading_memories list (default: 0.3). Does not affect distribution buckets.' },
+      },
+    },
+  },
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -699,7 +709,24 @@ async function handleToolCall(
         semanticResults = combined.map(r => ({ ...r, match_type: 'semantic' as const }))
       }
 
-      const results = [...annotatedFts, ...semanticResults].slice(0, limit)
+      let results = [...annotatedFts, ...semanticResults].slice(0, limit)
+
+      // Strength-weighted re-ranking (#136)
+      const allIds = results.map(r => r.id)
+      const strengthMap = await q.getStrengthMap(db, allIds, {
+        thoughtIds: results.filter(r => r.type === 'thought').map(r => r.id),
+        decisionIds: results.filter(r => r.type === 'decision').map(r => r.id),
+      })
+      results = results.map(r => ({
+        ...r,
+        strength: Math.round((strengthMap.get(r.id) ?? 1.0) * 100) / 100,
+      }))
+      // FTS-only results get base score 0.5 (no vector score available)
+      results.sort((a, b) => {
+        const scoreA = (vectorMap.get(a.id) ?? 0.5) * (strengthMap.get(a.id) ?? 1.0)
+        const scoreB = (vectorMap.get(b.id) ?? 0.5) * (strengthMap.get(b.id) ?? 1.0)
+        return scoreB - scoreA
+      })
 
       // Fire-and-forget access tracking (#134)
       const thoughtAccessIds = results.filter(r => r.type === 'thought').map(r => r.id)
@@ -742,11 +769,22 @@ async function handleToolCall(
         vectorOnlyRecords.sort((a, b) => (vectorMap.get(b.id) ?? 0) - (vectorMap.get(a.id) ?? 0))
       }
 
-      const searchResults = [...ftsResults, ...vectorOnlyRecords].slice(0, limit)
+      let searchResults = [...ftsResults, ...vectorOnlyRecords].slice(0, limit)
 
       if (!searchResults.length) {
         return { query, found: 0, message: `No memories found for "${query}".`, memories: [] }
       }
+
+      // Strength-weighted re-ranking (#136)
+      const recallStrengthMap = await q.getStrengthMap(db, searchResults.map(r => r.id), {
+        thoughtIds: searchResults.filter(r => r.type === 'thought').map(r => r.id),
+        decisionIds: searchResults.filter(r => r.type === 'decision').map(r => r.id),
+      })
+      searchResults.sort((a, b) => {
+        const scoreA = (vectorMap.get(a.id) ?? 0.5) * (recallStrengthMap.get(a.id) ?? 1.0)
+        const scoreB = (vectorMap.get(b.id) ?? 0.5) * (recallStrengthMap.get(b.id) ?? 1.0)
+        return scoreB - scoreA
+      })
 
       const thoughtIds = searchResults.filter(r => r.type === 'thought').map(r => r.id)
       const decisionIds = searchResults.filter(r => r.type === 'decision').map(r => r.id)
@@ -764,17 +802,19 @@ async function handleToolCall(
           ? (vectorMap.has(result.id) ? 'both' : 'keyword')
           : 'semantic'
 
+        const strength = Math.round((recallStrengthMap.get(result.id) ?? 1.0) * 100) / 100
+
         if (result.type === 'decision') {
           const full = decisions.find(d => d.id === result.id)
           return full ? {
             type: 'decision', date: formatDate(full.created_at),
-            summary: `DECISION: ${full.title}`, match_type: matchType,
+            summary: `DECISION: ${full.title}`, match_type: matchType, strength,
             details: { context: full.context, chosen: full.chosen, rationale: full.rationale, tags: q.parseTags(full.tags) },
           } : {
-            type: 'decision', date: formatDate(result.created_at), summary: `DECISION: ${result.content}`, match_type: matchType,
+            type: 'decision', date: formatDate(result.created_at), summary: `DECISION: ${result.content}`, match_type: matchType, strength,
           }
         }
-        return { type: 'thought', date: formatDate(result.created_at), summary: result.content, match_type: matchType }
+        return { type: 'thought', date: formatDate(result.created_at), summary: result.content, match_type: matchType, strength }
       })
 
       const formatted = memories.map((m, i) => {
@@ -863,6 +903,13 @@ async function handleToolCall(
           const staleCount = await q.getStaleDecisions(db, userId, 90, 100)
           relatedContext.stale_decisions_count = staleCount.length
           relatedContext.stale_decisions_message = `You have ${staleCount.length} decision(s) that haven't been reviewed in 90+ days. Use brain_stale_decisions to see them.`
+        }
+
+        // Fading memories alert (#136)
+        const fadingCount = await q.countFadingMemories(db, userId)
+        if (fadingCount > 0) {
+          relatedContext.fading_memories_count = fadingCount
+          relatedContext.fading_memories_message = `${fadingCount} memories are fading. Use brain_memory_health to review.`
         }
 
         // Pending handoffs to this project
@@ -1505,6 +1552,22 @@ async function handleToolCall(
       return { ...data, formatted, ai_summary: aiSummary }
     }
 
+    case 'brain_memory_health': {
+      const threshold = (args.threshold as number) ?? 0.3
+      const health = await q.getMemoryHealth(db, userId, threshold)
+      return {
+        total_memories: health.total,
+        strength_distribution: health.distribution,
+        fading_memories: health.fading.map(m => ({
+          id: m.id, type: m.type,
+          summary: m.content.slice(0, 120),
+          strength: Math.round(m.strength * 100) / 100,
+          created_at: m.created_at,
+        })),
+        potentiated_count: health.potentiated_count,
+      }
+    }
+
     default:
       throw new Error(`Unknown tool: ${name}`)
   }
@@ -1521,6 +1584,7 @@ const READ_ONLY_TOOLS = new Set([
   'brain_decision_accuracy', 'brain_cost_per_outcome', 'brain_prompt_quality',
   'brain_learning_curve', 'brain_score_session', 'brain_decision_templates',
   'brain_check_update', 'brain_stale_decisions', 'brain_reminders', 'brain_digest',
+  'brain_memory_health',
 ])
 
 // Scope-aware wrapper: checks tool permissions before dispatching
