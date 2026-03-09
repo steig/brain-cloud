@@ -42,6 +42,7 @@ const CalendarPage = lazy(() => import("./components/calendar/page").then(m => (
 const ChangelogPage = lazy(() => import("./components/changelog/page").then(m => ({ default: m.ChangelogPage })));
 const DocsPage = lazy(() => import("./components/docs/page").then(m => ({ default: m.DocsPage })));
 const AskPage = lazy(() => import("./components/ask/page").then(m => ({ default: m.AskPage })));
+const RemindersPage = lazy(() => import("./components/reminders/page").then(m => ({ default: m.RemindersPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -87,6 +88,7 @@ function AppLayout() {
             <Route path="decisions/reviews" element={<LazyRoute><ReviewsPage /></LazyRoute>} />
             <Route path="sessions" element={<LazyRoute><SessionsPage /></LazyRoute>} />
             <Route path="handoffs" element={<LazyRoute><HandoffsPage /></LazyRoute>} />
+            <Route path="reminders" element={<LazyRoute><RemindersPage /></LazyRoute>} />
             <Route path="ask" element={<LazyRoute><AskPage /></LazyRoute>} />
             <Route path="insights" element={<LazyRoute><InsightsPage /></LazyRoute>} />
             <Route path="coaching" element={<LazyRoute><CoachingPage /></LazyRoute>} />

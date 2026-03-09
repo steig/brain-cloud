@@ -19,6 +19,7 @@ import {
   Shield,
   GraduationCap,
   BookOpen,
+  Bell,
 } from "lucide-react";
 import { BrainCloudLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
@@ -43,6 +44,7 @@ export const navSections: NavSection[] = [
     items: [
       { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", shortcut: "D" },
       { to: "/quick-entry", icon: Zap, label: "Quick Entry", shortcut: "N" },
+      { to: "/reminders", icon: Bell, label: "Reminders" },
     ],
   },
   {

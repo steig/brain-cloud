@@ -1,6 +1,6 @@
 {
   "name": "create-brain-cloud",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "description": "Set up a self-hosted Brain Cloud instance on Cloudflare Workers",
   "bin": {
     "create-brain-cloud": "./dist/index.js"

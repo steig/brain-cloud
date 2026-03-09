@@ -131,17 +131,18 @@ Workers AI free tier includes 10,000 neurons per day — sufficient for personal
 
 ## Updating
 
+One command from your brain-cloud directory:
+
 ```bash
-# Pull latest changes
+npx create-brain-cloud update
+```
+
+Or manually:
+
+```bash
 git pull origin main
-
-# Install any new dependencies
 pnpm install
-
-# Run new migrations
 wrangler d1 migrations apply brain-db --remote
-
-# Rebuild and deploy
 pnpm --filter brain-web build
 cd packages/worker && wrangler deploy
 ```

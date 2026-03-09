@@ -359,7 +359,84 @@ async function configureMcpClient(
   }
 }
 
+async function update(): Promise<void> {
+  console.log(`
+  ────────────────────────────────
+   Brain Cloud — Update
+  ────────────────────────────────
+`);
+
+  const cwd = process.argv[3] || process.cwd();
+
+  // Verify this is a brain-cloud install
+  step("Verifying Brain Cloud installation");
+  if (!(await fileExists(join(cwd, "packages", "worker", "wrangler.toml")))) {
+    fail(`Not a Brain Cloud install (no packages/worker/wrangler.toml in ${cwd})`);
+  }
+  success("Brain Cloud installation found");
+
+  // Pull latest
+  step("Pulling latest changes");
+  if (!runInteractive("git pull origin main", cwd)) {
+    fail("git pull failed. Resolve conflicts or stash changes first.");
+  }
+  success("Up to date");
+
+  // Install dependencies
+  step("Installing dependencies");
+  if (!runInteractive("pnpm install", cwd)) {
+    fail("pnpm install failed");
+  }
+  success("Dependencies installed");
+
+  // Run migrations (idempotent)
+  step("Running database migrations");
+  const workerDir = join(cwd, "packages", "worker");
+  if (!runInteractive("wrangler d1 migrations apply brain-db --remote", workerDir)) {
+    fail("Migrations failed. Check the error above.");
+  }
+  success("Migrations applied");
+
+  // Build web dashboard
+  step("Building web dashboard");
+  if (!runInteractive("pnpm --filter brain-web build", cwd)) {
+    fail("Web build failed. Check the error above.");
+  }
+  success("Web dashboard built");
+
+  // Deploy
+  step("Deploying to Cloudflare Workers");
+  const deployOutput = run("wrangler deploy", workerDir);
+  const urlMatch = deployOutput.match(/https:\/\/[^\s]+\.workers\.dev/);
+  const url = urlMatch ? urlMatch[0] : "your-instance.workers.dev";
+  success(`Deployed to ${url}`);
+
+  // Check version
+  step("Verifying deployment");
+  try {
+    const res = await fetch(`${url}/version`);
+    if (res.ok) {
+      const versionOutput = await res.text();
+      success(`Live version: ${versionOutput.trim()}`);
+    } else {
+      warn(`/version returned HTTP ${res.status} — deploy may still be propagating`);
+    }
+  } catch {
+    warn("Could not reach /version endpoint — deploy may still be propagating");
+  }
+
+  console.log(`
+  ✓ Update complete!
+  ${url}
+`);
+}
+
 async function main(): Promise<void> {
+  // Route subcommands
+  if (process.argv[2] === "update") {
+    return update();
+  }
+
   console.log(BANNER);
 
   const rl = createInterface({ input: stdin, output: stdout });

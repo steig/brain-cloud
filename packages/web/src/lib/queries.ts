@@ -12,6 +12,7 @@ import {
   related,
   teams as teamsApi,
   notifications as notificationsApi,
+  reminders as remindersApi,
   type Thought,
   type Decision,
   type Session,
@@ -600,6 +601,47 @@ export function useApproveUser() {
       qc.invalidateQueries({ queryKey: ['admin-stats'], exact: true })
     },
   })
+}
+
+// Reminders
+export function useReminders(params?: { status?: string; limit?: number }) {
+  return useQuery({
+    queryKey: ["reminders", params],
+    queryFn: () => remindersApi.list(params),
+  });
+}
+
+export function useCreateReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { content: string; due_at: string; project_id?: string }) =>
+      remindersApi.create(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reminders"] }),
+  });
+}
+
+export function useCompleteReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => remindersApi.complete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reminders"] }),
+  });
+}
+
+export function useDismissReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => remindersApi.dismiss(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reminders"] }),
+  });
+}
+
+export function useDeleteReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => remindersApi.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["reminders"] }),
+  });
 }
 
 // Cross-project insights

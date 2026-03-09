@@ -74,6 +74,10 @@ export function DecisionList({ decisions, isLoading }: DecisionListProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {decision.access_count === 0 && !decision.last_accessed_at &&
+                    Math.floor((Date.now() - new Date(decision.created_at).getTime()) / 86400000) > 90 && (
+                      <span className="text-xs text-muted-foreground/60 italic">Never reviewed</span>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {timeAgo(decision.created_at)}
                   </span>

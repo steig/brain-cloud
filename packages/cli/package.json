@@ -1,9 +1,9 @@
 {
-  "name": "brain-cloud",
-  "version": "0.1.0",
-  "description": "CLI installer for Brain Cloud MCP server",
+  "name": "brain-cli",
+  "version": "1.1.0",
+  "description": "CLI for Brain Cloud — log thoughts, decisions, and recall past context",
   "bin": {
-    "brain-cloud": "./dist/index.js"
+    "brain": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc"
@@ -12,6 +12,19 @@
     "dist"
   ],
   "type": "module",
+  "keywords": [
+    "brain-cloud",
+    "mcp",
+    "cli",
+    "developer-tools",
+    "ai-memory"
+  ],
+  "license": "AGPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/steig/brain-cloud.git",
+    "directory": "packages/cli"
+  },
   "devDependencies": {
     "@types/node": "^25.3.5",
     "typescript": "^5.9.3"

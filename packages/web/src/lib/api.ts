@@ -187,6 +187,8 @@ export interface Decision {
   project_name?: string;
   created_at: string;
   updated_at: string;
+  access_count?: number;
+  last_accessed_at?: string | null;
 }
 
 export interface Session {
@@ -385,6 +387,34 @@ export interface TimelineEntry {
   thought_type?: string;
   tags?: string[];
 }
+
+// Reminder types
+export interface Reminder {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  content: string;
+  due_at: string;
+  completed_at: string | null;
+  dismissed_at: string | null;
+  created_at: string;
+}
+
+export const reminders = {
+  list: (params?: { status?: string; limit?: number }) => {
+    const sp = new URLSearchParams();
+    if (params?.status) sp.set("status", params.status);
+    if (params?.limit) sp.set("limit", String(params.limit));
+    return api.get<Reminder[]>(`/api/reminders?${sp}`);
+  },
+  create: (data: { content: string; due_at: string; project_id?: string }) =>
+    api.post<Reminder>("/api/reminders", data),
+  complete: (id: string) =>
+    api.patch<{ success: boolean }>(`/api/reminders/${id}`, { action: "complete" }),
+  dismiss: (id: string) =>
+    api.patch<{ success: boolean }>(`/api/reminders/${id}`, { action: "dismiss" }),
+  delete: (id: string) => api.delete<void>(`/api/reminders/${id}`),
+};
 
 // Team types
 export interface Team {

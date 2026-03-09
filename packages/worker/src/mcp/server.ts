@@ -522,6 +522,74 @@ const TOOLS = [
       required: ['client_version'],
     },
   },
+  {
+    name: 'brain_stale_decisions',
+    description: 'Find decisions that have never been accessed and may need review.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: { type: 'number', description: 'Minimum age in days to consider stale (default: 90)' },
+        limit: { type: 'number', description: 'Max results (default: 20)' },
+      },
+    },
+  },
+  {
+    name: 'brain_remind',
+    description: 'Create a reminder for a future date.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: 'What to be reminded about' },
+        due_in: { type: 'string', description: "Relative time: '2d' (2 days), '1w' (1 week), '3h' (3 hours)" },
+        due_at: { type: 'string', description: 'Absolute ISO 8601 date/time' },
+        project: { type: 'string', description: 'Project name' },
+      },
+      required: ['content'],
+    },
+  },
+  {
+    name: 'brain_reminders',
+    description: 'List reminders, optionally filtered by status.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        status: { type: 'string', enum: ['pending', 'completed', 'dismissed'], description: 'Filter by status (default: pending)' },
+        limit: { type: 'number', description: 'Max results (default: 50)' },
+      },
+    },
+  },
+  {
+    name: 'brain_complete_reminder',
+    description: 'Mark a reminder as completed.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Reminder ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'brain_delete_reminder',
+    description: 'Permanently delete a reminder.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Reminder ID' },
+      },
+      required: ['id'],
+    },
+  },
+  {
+    name: 'brain_digest',
+    description: 'Generate a weekly digest summarizing brain activity.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        days: { type: 'number', description: 'Number of days to cover (default: 7)' },
+      },
+    },
+  },
 ]
 
 // ═══════════════════════════════════════════════════════════════════
@@ -632,6 +700,13 @@ async function handleToolCall(
       }
 
       const results = [...annotatedFts, ...semanticResults].slice(0, limit)
+
+      // Fire-and-forget access tracking (#134)
+      const thoughtAccessIds = results.filter(r => r.type === 'thought').map(r => r.id)
+      const decisionAccessIds = results.filter(r => r.type === 'decision').map(r => r.id)
+      if (thoughtAccessIds.length) q.incrementAccessCount(db, 'thought', thoughtAccessIds).catch(() => {})
+      if (decisionAccessIds.length) q.incrementAccessCount(db, 'decision', decisionAccessIds).catch(() => {})
+
       return { results, search_type: vectorResults.length ? 'hybrid' : 'keyword' }
     }
 
@@ -713,6 +788,12 @@ async function handleToolCall(
         return lines.join('\n')
       }).join('\n\n')
 
+      // Fire-and-forget access tracking (#134)
+      const recallThoughtIds = searchResults.filter(r => r.type === 'thought').map(r => r.id)
+      const recallDecisionIds = searchResults.filter(r => r.type === 'decision').map(r => r.id)
+      if (recallThoughtIds.length) q.incrementAccessCount(db, 'thought', recallThoughtIds).catch(() => {})
+      if (recallDecisionIds.length) q.incrementAccessCount(db, 'decision', recallDecisionIds).catch(() => {})
+
       const searchType = vectorResults.length ? 'hybrid' : 'keyword'
       return { query, found: memories.length, search_type: searchType, formatted, memories }
     }
@@ -768,6 +849,22 @@ async function handleToolCall(
             mood_end: ls.mood_end, ended_at: ls.ended_at,
           }
         }
+        // Due reminders (#133/#135)
+        const dueReminders = await q.getDueReminders(db, userId)
+        if (dueReminders.length) {
+          relatedContext.due_reminders = dueReminders.map(r => ({
+            id: r.id, content: r.content, due_at: r.due_at,
+          }))
+        }
+
+        // Stale decisions count (#133/#134)
+        const staleDecisions = await q.getStaleDecisions(db, userId, 90, 1)
+        if (staleDecisions.length) {
+          const staleCount = await q.getStaleDecisions(db, userId, 90, 100)
+          relatedContext.stale_decisions_count = staleCount.length
+          relatedContext.stale_decisions_message = `You have ${staleCount.length} decision(s) that haven't been reviewed in 90+ days. Use brain_stale_decisions to see them.`
+        }
+
         // Pending handoffs to this project
         if (args.project) {
           const handoffs = await q.listHandoffs(db, userId, {
@@ -1315,6 +1412,99 @@ async function handleToolCall(
       }
     }
 
+    // ── Stale Decisions (#134) ──
+    case 'brain_stale_decisions': {
+      const days = (args.days as number) || 90
+      const limit = (args.limit as number) || 20
+      const stale = await q.getStaleDecisions(db, userId, days, limit)
+      return {
+        count: stale.length,
+        message: stale.length ? `You have ${stale.length} decision(s) that haven't been reviewed in ${days}+ days.` : 'No stale decisions found.',
+        decisions: stale.map(d => ({
+          id: d.id, title: d.title, chosen: d.chosen,
+          created_at: d.created_at, age_days: Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000),
+        })),
+      }
+    }
+
+    // ── Reminders (#135) ──
+    case 'brain_remind': {
+      const content = args.content as string
+      let dueAt: string
+
+      if (args.due_at) {
+        dueAt = new Date(args.due_at as string).toISOString()
+      } else if (args.due_in) {
+        const dueIn = args.due_in as string
+        const match = dueIn.match(/^(\d+)([hdwm])$/)
+        if (!match) throw new Error(`Invalid due_in format: "${dueIn}". Use e.g. "2d", "1w", "3h"`)
+        const [, numStr, unit] = match
+        const num = parseInt(numStr)
+        const ms = { h: 3600000, d: 86400000, w: 604800000, m: 2592000000 }[unit]!
+        dueAt = new Date(Date.now() + num * ms).toISOString()
+      } else {
+        // Default: 1 day from now
+        dueAt = new Date(Date.now() + 86400000).toISOString()
+      }
+
+      const projectId = await resolveProjectId(db, args.project as string)
+      const reminder = await q.createReminder(db, userId, { content, due_at: dueAt, project_id: projectId })
+      return { success: true, reminder, message: `Reminder set for ${formatDate(dueAt)}` }
+    }
+
+    case 'brain_reminders': {
+      const status = (args.status as 'pending' | 'completed' | 'dismissed') || 'pending'
+      const limit = (args.limit as number) || 50
+      const reminders = await q.listReminders(db, userId, { status, limit })
+      return {
+        count: reminders.length,
+        reminders: reminders.map(r => ({
+          ...r,
+          is_overdue: r.completed_at === null && r.dismissed_at === null && new Date(r.due_at) < new Date(),
+        })),
+      }
+    }
+
+    case 'brain_complete_reminder': {
+      const id = args.id as string
+      const success = await q.completeReminder(db, userId, id)
+      if (!success) return { success: false, error: 'Reminder not found or already completed' }
+      return { success: true, message: `Reminder ${id} marked complete` }
+    }
+
+    case 'brain_delete_reminder': {
+      const id = args.id as string
+      const success = await q.deleteReminder(db, userId, id)
+      if (!success) return { success: false, error: 'Reminder not found' }
+      return { success: true, message: `Reminder ${id} deleted` }
+    }
+
+    // ── Weekly Digest (#138) ──
+    case 'brain_digest': {
+      const days = (args.days as number) || 7
+      const toDate = new Date()
+      const fromDate = new Date(toDate.getTime() - days * 86400000)
+      const toISO = toDate.toISOString()
+      const fromISO = fromDate.toISOString()
+      const data = await q.getDigestData(db, userId, fromISO, toISO)
+
+      let formatted = q.formatDigestText(data, fromISO, toISO)
+
+      let aiSummary: string | null = null
+      try {
+        if (data.thought_count + data.decision_count > 0) {
+          const prompt = `Summarize this developer's week in 2-3 sentences. Be specific and encouraging.\n\nActivity: ${data.thought_count} thoughts, ${data.decision_count} decisions, ${data.session_count} sessions over ${days} days.\nProjects: ${data.top_projects.map(p => p.name).join(', ') || 'none'}\nBlockers: ${data.unresolved_blockers.length}\nOpen TODOs: ${data.open_todos.length}`
+          aiSummary = await generateWithAI(env, prompt, { db, userId, operation: 'digest' })
+        }
+      } catch { /* AI optional */ }
+
+      if (aiSummary) {
+        formatted += '\n\n### Summary\n' + aiSummary.trim()
+      }
+
+      return { ...data, formatted, ai_summary: aiSummary }
+    }
+
     default:
       throw new Error(`Unknown tool: ${name}`)
   }
@@ -1330,7 +1520,7 @@ const READ_ONLY_TOOLS = new Set([
   'brain_dx_summary', 'brain_handoffs', 'brain_coaching_insights',
   'brain_decision_accuracy', 'brain_cost_per_outcome', 'brain_prompt_quality',
   'brain_learning_curve', 'brain_score_session', 'brain_decision_templates',
-  'brain_check_update',
+  'brain_check_update', 'brain_stale_decisions', 'brain_reminders', 'brain_digest',
 ])
 
 // Scope-aware wrapper: checks tool permissions before dispatching
@@ -1423,12 +1613,30 @@ async function handleJsonRpc(
 // ═══════════════════════════════════════════════════════════════════
 
 export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variables }>) {
-  // Only POST for stateless MCP
+  // Streamable HTTP: GET opens optional SSE stream, DELETE ends session
+  // This server is stateless — no SSE support, but we must not reject GET/DELETE
+  if (c.req.method === 'GET') {
+    // Return SSE headers with immediate close — signals "no server-initiated messages"
+    return new Response('', {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    })
+  }
+
+  if (c.req.method === 'DELETE') {
+    // Stateless — nothing to clean up
+    return c.body(null, 200)
+  }
+
   if (c.req.method !== 'POST') {
     return c.json(
       { jsonrpc: '2.0', error: { code: -32000, message: 'Use POST for MCP requests' }, id: null },
       405,
-      { Allow: 'POST' }
+      { Allow: 'GET, POST, DELETE' }
     )
   }
 

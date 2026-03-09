@@ -25,6 +25,7 @@ export interface RetentionResult {
   auth_sessions_deleted: number
   rate_limits_deleted: number
   vectorize_embeddings_deleted: number
+  weekly_digests_generated: number
 }
 
 const BATCH_SIZE = 1000
@@ -105,9 +106,49 @@ export async function handleRetention(db: D1Database, env?: Env): Promise<Retent
     }
   }
 
+  // Weekly digest generation — run on Sundays
+  let weekly_digests_generated = 0
+  const dayOfWeek = now.getUTCDay()
+  if (dayOfWeek === 0) { // Sunday
+    try {
+      const { getDigestData, formatDigestText, createThought, listThoughts } = await import('./db/queries')
+      const toDate = now.toISOString()
+      const fromDate = new Date(now.getTime() - 7 * 86400000).toISOString()
+      const weekTag = `weekly-digest-${toDate.split('T')[0]}`
+
+      // Get all active users (who had activity in the last 7 days)
+      const activeUsers = await db.prepare(
+        `SELECT DISTINCT user_id FROM sessions WHERE started_at >= ? UNION SELECT DISTINCT user_id FROM thoughts WHERE created_at >= ? AND deleted_at IS NULL`
+      ).bind(fromDate, fromDate).all<{ user_id: string }>()
+
+      for (const { user_id } of activeUsers.results ?? []) {
+        // Check if digest already exists for this week
+        const existing = await listThoughts(db, user_id, {
+          type: 'insight', tagsContain: ['weekly-digest', weekTag], limit: 1, withJoins: false,
+        })
+        if (existing.length > 0) continue
+
+        const data = await getDigestData(db, user_id, fromDate, toDate)
+        if (data.thought_count + data.decision_count + data.session_count === 0) continue
+
+        const content = formatDigestText(data, fromDate, toDate)
+
+        await createThought(db, user_id, {
+          type: 'insight',
+          content,
+          tags: ['weekly-digest', weekTag, 'auto-generated'],
+          context: { stats: data, generated_at: now.toISOString() },
+        })
+        weekly_digests_generated++
+      }
+    } catch (err) {
+      console.error('[retention] Weekly digest generation failed:', err)
+    }
+  }
+
   console.log(
-    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h), ${vectorize_embeddings_deleted} vectorize embeddings (soft-deleted >24h)`,
+    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h), ${vectorize_embeddings_deleted} vectorize embeddings (soft-deleted >24h), ${weekly_digests_generated} weekly digests generated`,
   )
 
-  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted, vectorize_embeddings_deleted }
+  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted, vectorize_embeddings_deleted, weekly_digests_generated }
 }

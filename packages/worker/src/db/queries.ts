@@ -1522,4 +1522,226 @@ export async function acceptTeamInvite(
   ).bind(inviteId).run()
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// Access Tracking (#134)
+// ═══════════════════════════════════════════════════════════════════
+
+export async function incrementAccessCount(
+  db: D1Database,
+  type: 'thought' | 'decision',
+  ids: string[]
+): Promise<void> {
+  if (!ids.length) return
+  const table = type === 'thought' ? 'thoughts' : 'decisions'
+  const placeholders = ids.map(() => '?').join(',')
+  await db.prepare(
+    `UPDATE ${table} SET access_count = access_count + 1, last_accessed_at = datetime('now')
+     WHERE id IN (${placeholders})`
+  ).bind(...ids).run()
+}
+
+export async function getStaleDecisions(
+  db: D1Database,
+  userId: string,
+  staleDays = 90,
+  limit = 20
+): Promise<DecisionRow[]> {
+  const cutoff = new Date(Date.now() - staleDays * 86400000).toISOString()
+  const result = await db.prepare(
+    `SELECT * FROM decisions
+     WHERE user_id = ? AND access_count = 0 AND created_at < ? AND deleted_at IS NULL
+     ORDER BY created_at ASC LIMIT ?`
+  ).bind(userId, cutoff, limit).all<DecisionRow>()
+  return result.results ?? []
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Reminders (#135)
+// ═══════════════════════════════════════════════════════════════════
+
+export interface ReminderRow {
+  id: string
+  user_id: string
+  project_id: string | null
+  content: string
+  due_at: string
+  completed_at: string | null
+  dismissed_at: string | null
+  created_at: string
+}
+
+export async function createReminder(
+  db: D1Database,
+  userId: string,
+  data: { content: string; due_at: string; project_id?: string | null }
+): Promise<ReminderRow> {
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+  await db.prepare(
+    `INSERT INTO reminders (id, user_id, project_id, content, due_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(id, userId, data.project_id ?? null, data.content, data.due_at, now).run()
+  return { id, user_id: userId, project_id: data.project_id ?? null, content: data.content, due_at: data.due_at, completed_at: null, dismissed_at: null, created_at: now }
+}
+
+export async function listReminders(
+  db: D1Database,
+  userId: string,
+  opts?: { status?: 'pending' | 'completed' | 'dismissed'; limit?: number }
+): Promise<ReminderRow[]> {
+  const limit = opts?.limit ?? 50
+  let sql = 'SELECT * FROM reminders WHERE user_id = ?'
+  const params: unknown[] = [userId]
+
+  if (opts?.status === 'pending') {
+    sql += ' AND completed_at IS NULL AND dismissed_at IS NULL'
+  } else if (opts?.status === 'completed') {
+    sql += ' AND completed_at IS NOT NULL'
+  } else if (opts?.status === 'dismissed') {
+    sql += ' AND dismissed_at IS NOT NULL'
+  }
+
+  sql += ' ORDER BY due_at ASC LIMIT ?'
+  params.push(limit)
+
+  const result = await db.prepare(sql).bind(...params).all<ReminderRow>()
+  return result.results ?? []
+}
+
+export async function getDueReminders(
+  db: D1Database,
+  userId: string
+): Promise<ReminderRow[]> {
+  const result = await db.prepare(
+    `SELECT * FROM reminders
+     WHERE user_id = ? AND completed_at IS NULL AND dismissed_at IS NULL AND due_at <= datetime('now')
+     ORDER BY due_at ASC`
+  ).bind(userId).all<ReminderRow>()
+  return result.results ?? []
+}
+
+export async function completeReminder(
+  db: D1Database,
+  userId: string,
+  id: string
+): Promise<boolean> {
+  const result = await db.prepare(
+    `UPDATE reminders SET completed_at = datetime('now')
+     WHERE id = ? AND user_id = ? AND completed_at IS NULL`
+  ).bind(id, userId).run()
+  return (result.meta.changes ?? 0) > 0
+}
+
+export async function dismissReminder(
+  db: D1Database,
+  userId: string,
+  id: string
+): Promise<boolean> {
+  const result = await db.prepare(
+    `UPDATE reminders SET dismissed_at = datetime('now')
+     WHERE id = ? AND user_id = ? AND dismissed_at IS NULL`
+  ).bind(id, userId).run()
+  return (result.meta.changes ?? 0) > 0
+}
+
+export async function deleteReminder(
+  db: D1Database,
+  userId: string,
+  id: string
+): Promise<boolean> {
+  const result = await db.prepare(
+    'DELETE FROM reminders WHERE id = ? AND user_id = ?'
+  ).bind(id, userId).run()
+  return (result.meta.changes ?? 0) > 0
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Weekly Digest (#138)
+// ═══════════════════════════════════════════════════════════════════
+
+export interface DigestData {
+  thought_count: number
+  decision_count: number
+  session_count: number
+  unresolved_blockers: ThoughtRow[]
+  open_todos: ThoughtRow[]
+  top_projects: Array<{ name: string; entry_count: number }>
+  session_minutes: number
+}
+
+export async function getDigestData(
+  db: D1Database,
+  userId: string,
+  fromDate: string,
+  toDate: string
+): Promise<DigestData> {
+  const [thoughtCount, decisionCount, sessionStats, blockers, todos, topProjects] = await Promise.all([
+    db.prepare(
+      'SELECT COUNT(*) as cnt FROM thoughts WHERE user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL'
+    ).bind(userId, fromDate, toDate).first<{ cnt: number }>(),
+    db.prepare(
+      'SELECT COUNT(*) as cnt FROM decisions WHERE user_id = ? AND created_at BETWEEN ? AND ? AND deleted_at IS NULL'
+    ).bind(userId, fromDate, toDate).first<{ cnt: number }>(),
+    db.prepare(
+      `SELECT COUNT(*) as cnt,
+       COALESCE(SUM(CAST((julianday(COALESCE(ended_at, datetime('now'))) - julianday(started_at)) * 1440 AS INTEGER)), 0) as total_minutes
+       FROM sessions WHERE user_id = ? AND started_at BETWEEN ? AND ?`
+    ).bind(userId, fromDate, toDate).first<{ cnt: number; total_minutes: number }>(),
+    db.prepare(
+      `SELECT * FROM thoughts WHERE user_id = ? AND type = 'todo' AND deleted_at IS NULL
+       AND EXISTS (SELECT 1 FROM json_each(tags) WHERE json_each.value = 'blocker')
+       ORDER BY created_at DESC LIMIT 10`
+    ).bind(userId).all<ThoughtRow>(),
+    db.prepare(
+      `SELECT * FROM thoughts WHERE user_id = ? AND type = 'todo' AND deleted_at IS NULL
+       ORDER BY created_at DESC LIMIT 10`
+    ).bind(userId).all<ThoughtRow>(),
+    db.prepare(
+      `SELECT p.name, COUNT(*) as entry_count FROM (
+         SELECT project_id FROM thoughts WHERE user_id = ? AND created_at BETWEEN ? AND ? AND project_id IS NOT NULL AND deleted_at IS NULL
+         UNION ALL
+         SELECT project_id FROM decisions WHERE user_id = ? AND created_at BETWEEN ? AND ? AND project_id IS NOT NULL AND deleted_at IS NULL
+         UNION ALL
+         SELECT project_id FROM sessions WHERE user_id = ? AND started_at BETWEEN ? AND ? AND project_id IS NOT NULL
+       ) entries
+       JOIN projects p ON p.id = entries.project_id
+       GROUP BY p.name ORDER BY entry_count DESC LIMIT 5`
+    ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate).all<{ name: string; entry_count: number }>(),
+  ])
+
+  return {
+    thought_count: thoughtCount?.cnt ?? 0,
+    decision_count: decisionCount?.cnt ?? 0,
+    session_count: sessionStats?.cnt ?? 0,
+    session_minutes: sessionStats?.total_minutes ?? 0,
+    unresolved_blockers: blockers.results ?? [],
+    open_todos: todos.results ?? [],
+    top_projects: topProjects.results ?? [],
+  }
+}
+
+export function formatDigestText(data: DigestData, fromDate: string, toDate: string): string {
+  const from = fromDate.split('T')[0]
+  const to = toDate.split('T')[0]
+  const lines = [`## Weekly Digest — ${from} to ${to}`, '']
+  lines.push(`**${data.thought_count}** thoughts, **${data.decision_count}** decisions, **${data.session_count}** sessions`)
+  if (data.session_minutes > 0) {
+    const hours = Math.floor(data.session_minutes / 60)
+    const mins = data.session_minutes % 60
+    lines.push(`**${hours}h ${mins}m** total session time`)
+  }
+  if (data.top_projects.length) {
+    lines.push('')
+    lines.push(`Top projects: ${data.top_projects.map(p => `${p.name} (${p.entry_count})`).join(', ')}`)
+  }
+  if (data.unresolved_blockers.length) {
+    lines.push('')
+    lines.push(`**${data.unresolved_blockers.length}** unresolved blockers`)
+  }
+  if (data.open_todos.length) {
+    lines.push(`**${data.open_todos.length}** open TODOs`)
+  }
+  return lines.join('\n')
+}
+
 export { parseTags, parseJson, toJson }
