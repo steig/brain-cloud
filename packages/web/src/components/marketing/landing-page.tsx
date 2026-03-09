@@ -103,7 +103,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How much does Cloudflare cost?",
-    a: "Nothing for personal use. The Workers free tier includes 100,000 requests/day, 5 GB D1 storage, and 10,000 Workers AI neurons/day. That covers solo developers and small teams with room to spare.",
+    a: "Nothing for personal use. Cloudflare's free tier includes 100,000 Worker requests/day, 5 GB D1 storage, and 10,000 Workers AI neurons/day. Brain Cloud doesn't add any limits on top — you get the full Cloudflare free tier.",
   },
   {
     q: "Which AI clients are supported?",
@@ -127,7 +127,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "Is there a managed hosting option?",
-    a: "Not yet, but we're considering it. If you'd rather not manage your own instance, let us know. For now, self-hosting on your own Cloudflare account is the way to go — it takes about 5 minutes.",
+    a: "Not yet, but we're considering it. If you'd rather not manage your own instance, let us know. For now, self-hosting on your own Cloudflare account is the way to go — the interactive installer handles everything.",
   },
 ];
 
@@ -474,7 +474,7 @@ function PricingSection() {
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-0.5 font-bold text-amber-400">&#10003;</span>
-              AI coaching &amp; semantic search (optional)
+              AI coaching &amp; semantic search (requires Workers AI)
             </li>
             <li className="flex items-start gap-2">
               <span className="mt-0.5 font-bold text-amber-400">&#10003;</span>
