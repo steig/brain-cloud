@@ -17,6 +17,8 @@ import { handleRetention } from './retention'
 import { docsRoutes } from './api/docs'
 import { analyticsTrackRoutes } from './api/analytics-track'
 import { installAssetRoutes } from './api/install-assets'
+import { metadataRoutes } from './oauth/metadata'
+import { oauthRoutes } from './oauth/routes'
 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -40,14 +42,22 @@ app.use('*', secureHeaders({
 app.use('*', cors({
   origin: (origin, c) => {
     const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'
-    // Allow the configured frontend URL and the request's own origin (same-host deploy)
-    if (!origin || origin === frontendUrl || origin === new URL(c.req.url).origin) return origin
+    // Allow the configured frontend URL, the request's own origin, and claude.ai for MCP OAuth
+    const allowedOrigins = [frontendUrl, new URL(c.req.url).origin, 'https://claude.ai', 'https://claude.com']
+    if (!origin || allowedOrigins.includes(origin)) return origin
     return null
   },
   credentials: true,
   allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'X-API-Key', 'Authorization'],
 }))
+
+// OAuth 2.1 well-known metadata (public, no auth)
+app.route('/.well-known', metadataRoutes)
+
+// OAuth 2.1 endpoints (rate-limited, handle their own auth)
+app.use('/oauth/*', authRateLimiter)
+app.route('/oauth', oauthRoutes)
 
 // Auth routes (no auth middleware — these handle their own auth)
 app.use('/auth/*', authRateLimiter)

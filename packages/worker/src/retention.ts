@@ -27,6 +27,8 @@ export interface RetentionResult {
   vectorize_embeddings_deleted: number
   memories_recalculated: number
   weekly_digests_generated: number
+  oauth_codes_deleted: number
+  oauth_tokens_deleted: number
 }
 
 const BATCH_SIZE = 1000
@@ -107,6 +109,18 @@ export async function handleRetention(db: D1Database, env?: Env): Promise<Retent
     }
   }
 
+  // OAuth: expired authorization codes + fully expired tokens
+  let oauth_codes_deleted = 0
+  let oauth_tokens_deleted = 0
+  try {
+    const { cleanupExpiredOAuth } = await import('./oauth/queries')
+    const oauthResult = await cleanupExpiredOAuth(db)
+    oauth_codes_deleted = oauthResult.codes
+    oauth_tokens_deleted = oauthResult.tokens
+  } catch (err) {
+    console.error('[retention] OAuth cleanup failed:', err)
+  }
+
   // Cognitive decay: recalculate memory strength (#136)
   let memories_recalculated = 0
   try {
@@ -157,8 +171,8 @@ export async function handleRetention(db: D1Database, env?: Env): Promise<Retent
   }
 
   console.log(
-    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h), ${vectorize_embeddings_deleted} vectorize embeddings (soft-deleted >24h), ${memories_recalculated} memories decayed, ${weekly_digests_generated} weekly digests generated`,
+    `[retention] Deleted ${dx_events_deleted} dx_events (>90d), ${auth_sessions_deleted} auth_sessions (expired >30d), ${rate_limits_deleted} rate_limits (>1h), ${vectorize_embeddings_deleted} vectorize embeddings (soft-deleted >24h), ${memories_recalculated} memories decayed, ${weekly_digests_generated} weekly digests generated, ${oauth_codes_deleted} oauth codes, ${oauth_tokens_deleted} oauth tokens`,
   )
 
-  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted, vectorize_embeddings_deleted, memories_recalculated, weekly_digests_generated }
+  return { dx_events_deleted, auth_sessions_deleted, rate_limits_deleted, vectorize_embeddings_deleted, memories_recalculated, weekly_digests_generated, oauth_codes_deleted, oauth_tokens_deleted }
 }

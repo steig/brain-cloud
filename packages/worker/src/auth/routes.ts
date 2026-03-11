@@ -173,8 +173,25 @@ async function handleOAuthCallback(
     c.req.header('User-Agent') ?? null, c.req.header('CF-Connecting-IP') ?? null,
   ).run()
 
-  // Set cookies and redirect back to the origin that initiated login
+  // Set cookies and redirect
   setAuthCookies(c, accessToken, refreshToken)
+
+  // Check for OAuth return URL (set during /oauth/authorize when user wasn't logged in)
+  const oauthReturn = getCookie(c, 'brain_oauth_return')
+  if (oauthReturn) {
+    deleteCookie(c, 'brain_oauth_return', { path: '/' })
+    // Validate the return URL is same-origin to prevent open redirect
+    try {
+      const returnUrl = new URL(oauthReturn)
+      const requestOrigin = new URL(c.req.url).origin
+      if (returnUrl.origin === requestOrigin) {
+        return c.redirect(oauthReturn)
+      }
+    } catch {
+      // Invalid URL, fall through to default redirect
+    }
+  }
+
   const frontendUrl = c.env.FRONTEND_URL || 'https://brain-ai.dev'
   const origin = new URL(c.req.url).origin
   // Redirect to the request's origin if it matches frontend, otherwise fallback

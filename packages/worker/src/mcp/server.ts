@@ -1644,22 +1644,64 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
     )
   }
 
-  // Auth via X-API-Key — use 403 (not 401) to avoid triggering MCP OAuth flow
-  const apiKey = c.req.header('X-API-Key') || c.req.header('Authorization')?.replace(/^Bearer\s+/i, '')
-  if (!apiKey) {
+  // Auth: X-API-Key header, Authorization: Bearer (OAuth token or API key), or 401
+  const apiKeyHeader = c.req.header('X-API-Key')
+  const bearerToken = c.req.header('Authorization')?.replace(/^Bearer\s+/i, '')
+  const origin = new URL(c.req.url).origin
+  const resourceMetadataUrl = `${origin}/.well-known/oauth-protected-resource/mcp`
+
+  if (!apiKeyHeader && !bearerToken) {
     return c.json(
-      { jsonrpc: '2.0', error: { code: -32000, message: 'Missing X-API-Key or Authorization header' }, id: null },
-      403
+      { jsonrpc: '2.0', error: { code: -32000, message: 'Authentication required' }, id: null },
+      401,
+      { 'WWW-Authenticate': `Bearer resource_metadata="${resourceMetadataUrl}"` }
     )
   }
 
   const { hashToken } = await import('../auth/jwt')
-  const keyHash = await hashToken(apiKey)
-  const user = await q.findUserByKeyHash(c.env.DB, keyHash)
+  const { findOAuthTokenByHash } = await import('../oauth/queries')
+
+  let user: { id: string; name: string; key_scope?: string; expired?: boolean } | null = null
+  let keyScope: 'read' | 'write' | 'admin' = 'read'
+
+  if (apiKeyHeader) {
+    // X-API-Key: always use API key auth
+    const keyHash = await hashToken(apiKeyHeader)
+    user = await q.findUserByKeyHash(c.env.DB, keyHash)
+    if (!user) {
+      return c.json(
+        { jsonrpc: '2.0', error: { code: -32000, message: 'Invalid API key' }, id: null },
+        403
+      )
+    }
+  } else if (bearerToken) {
+    // Authorization: Bearer — try OAuth token first, then API key fallback
+    const tokenHash = await hashToken(bearerToken)
+    const oauthToken = await findOAuthTokenByHash(c.env.DB, tokenHash)
+    if (oauthToken) {
+      // OAuth token — map scopes to key_scope
+      const scopes = (oauthToken.scope || '').split(' ')
+      const oauthScope = scopes.includes('mcp:write') ? 'write' : 'read'
+      user = { id: oauthToken.user_id, name: oauthToken.user_name, key_scope: oauthScope }
+    } else {
+      // Fallback: treat as API key (backward compat)
+      user = await q.findUserByKeyHash(c.env.DB, tokenHash)
+    }
+
+    if (!user) {
+      return c.json(
+        { jsonrpc: '2.0', error: { code: -32000, message: 'Invalid token' }, id: null },
+        401,
+        { 'WWW-Authenticate': `Bearer resource_metadata="${resourceMetadataUrl}"` }
+      )
+    }
+  }
+
   if (!user) {
     return c.json(
-      { jsonrpc: '2.0', error: { code: -32000, message: 'Invalid API key' }, id: null },
-      403
+      { jsonrpc: '2.0', error: { code: -32000, message: 'Authentication required' }, id: null },
+      401,
+      { 'WWW-Authenticate': `Bearer resource_metadata="${resourceMetadataUrl}"` }
     )
   }
 
@@ -1671,7 +1713,7 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
     )
   }
 
-  const keyScope = (user.key_scope || 'read') as 'read' | 'write' | 'admin'
+  keyScope = (user.key_scope || 'read') as 'read' | 'write' | 'admin'
   const mcpUser: McpUser = { id: user.id, name: user.name }
 
   // Create per-request SDK server + stateless transport

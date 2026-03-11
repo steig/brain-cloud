@@ -8,6 +8,22 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.10.0',
+    date: '2026-03-11',
+    title: 'MCP OAuth 2.1 for Claude Desktop',
+    description: 'Native OAuth 2.1 authorization server for MCP clients — Claude Desktop can now authenticate without manually copying API keys.',
+    changes: [
+      { type: 'added', text: 'OAuth 2.1 authorization server with PKCE-only auth code flow and consent screen' },
+      { type: 'added', text: 'Protected resource metadata at /.well-known/oauth-protected-resource/mcp' },
+      { type: 'added', text: 'Authorization server metadata at /.well-known/oauth-authorization-server' },
+      { type: 'added', text: 'Dynamic client registration at /oauth/register for MCP clients' },
+      { type: 'added', text: 'OAuth token cleanup in nightly retention job' },
+      { type: 'improved', text: 'MCP auth returns 401 + WWW-Authenticate for proper OAuth discovery' },
+      { type: 'improved', text: 'Bearer token auth with API key fallback for backward compatibility' },
+      { type: 'improved', text: 'CORS allows claude.ai and claude.com origins for MCP OAuth flow' },
+    ],
+  },
+  {
     version: '1.9.0',
     date: '2026-03-11',
     title: 'Pagination & Date Range Filtering',

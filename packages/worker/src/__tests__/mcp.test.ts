@@ -115,15 +115,14 @@ describe('MCP JSON-RPC endpoint', () => {
   // ── Auth ───────────────────────────────────────────────────────────
 
   describe('auth', () => {
-    it('rejects requests without auth header (403, not 401, to avoid OAuth)', async () => {
+    it('rejects requests without auth header with 401 + WWW-Authenticate', async () => {
       const res = await SELF.fetch(new Request('http://localhost/mcp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': MCP_ACCEPT },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
       }))
-      expect(res.status).toBe(403)
-      const body = await res.json() as { error: { message: string } }
-      expect(body.error.message).toContain('Missing')
+      expect(res.status).toBe(401)
+      expect(res.headers.get('WWW-Authenticate')).toContain('resource_metadata')
     })
 
     it('rejects requests with invalid API key', async () => {
@@ -136,7 +135,7 @@ describe('MCP JSON-RPC endpoint', () => {
       expect(body.error.message).toContain('Invalid API key')
     })
 
-    it('accepts Authorization: Bearer as alternative to X-API-Key', async () => {
+    it('accepts Authorization: Bearer with API key (backward compat)', async () => {
       const res = await SELF.fetch(new Request('http://localhost/mcp', {
         method: 'POST',
         headers: {
@@ -147,6 +146,20 @@ describe('MCP JSON-RPC endpoint', () => {
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
       }))
       expect(res.status).toBe(200)
+    })
+
+    it('returns 401 with WWW-Authenticate for invalid Bearer token', async () => {
+      const res = await SELF.fetch(new Request('http://localhost/mcp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': MCP_ACCEPT,
+          'Authorization': 'Bearer invalid_token_xyz',
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+      }))
+      expect(res.status).toBe(401)
+      expect(res.headers.get('WWW-Authenticate')).toContain('resource_metadata')
     })
   })
 
