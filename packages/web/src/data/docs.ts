@@ -86,11 +86,28 @@ Create or edit \`~/.claude/mcp.json\` (replace \`YOUR_SERVER\` with your instanc
 
 ### Claude Desktop
 
+Claude Desktop supports two authentication methods:
+
+**Option A: OAuth (recommended)** — Add the MCP server URL and Claude Desktop handles auth automatically via the browser:
+
+\`\`\`json
+{
+  "mcpServers": {
+    "brain": {
+      "type": "url",
+      "url": "YOUR_SERVER/mcp"
+    }
+  }
+}
+\`\`\`
+
+When you first connect, Claude Desktop will open your browser to authorize access — no API key needed.
+
+**Option B: API Key** — Same format as Claude Code, using a \`headers\` block with your API key.
+
 Config file location:
 - macOS: \`~/Library/Application Support/Claude/claude_desktop_config.json\`
 - Windows: \`%APPDATA%/Claude/claude_desktop_config.json\`
-
-Same \`mcpServers\` format as Claude Code.
 
 ### Cursor
 
@@ -636,6 +653,44 @@ curl -H "X-API-Key: YOUR_KEY" https://YOUR_DOMAIN/api/export?format=json&type=al
     title: "API",
     sections: [
       {
+        id: "mcp-oauth",
+        title: "MCP OAuth 2.1",
+        content: `Brain Cloud supports OAuth 2.1 for MCP clients like Claude Desktop, so users can authorize access through the browser without copying API keys.
+
+## How It Works
+
+When an MCP client connects without credentials, Brain Cloud returns \`401\` with a \`WWW-Authenticate\` header pointing to the OAuth metadata endpoint. Compliant clients (like Claude Desktop) automatically start the OAuth flow:
+
+1. Client discovers the authorization server via \`/.well-known/oauth-protected-resource/mcp\`
+2. Client registers dynamically at \`/oauth/register\` (one-time)
+3. User authorizes in the browser at \`/oauth/authorize\` (with PKCE)
+4. Client exchanges the auth code for an access token at \`/oauth/token\`
+
+## Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| \`/.well-known/oauth-protected-resource/mcp\` | Protected resource metadata |
+| \`/.well-known/oauth-authorization-server\` | Authorization server metadata |
+| \`/oauth/register\` | Dynamic client registration |
+| \`/oauth/authorize\` | Authorization endpoint (browser) |
+| \`/oauth/token\` | Token exchange |
+
+## Scopes
+
+| Scope | Description |
+|-------|-------------|
+| \`mcp:read\` | Read-only access to MCP tools |
+| \`mcp:write\` | Read and write access |
+
+## Security
+
+- **PKCE required** — all clients must use S256 code challenge
+- **No client secrets** — public clients only (native apps, CLI tools)
+- **Short-lived tokens** — access tokens expire after 1 hour, refresh tokens after 30 days
+- **Automatic cleanup** — expired codes and tokens are purged by the nightly retention job`,
+      },
+      {
         id: "rate-limiting",
         title: "Rate Limiting",
         content: `Brain Cloud uses fixed-window rate limiting backed by D1. Every API and MCP request is counted against a per-key, per-path window. If the rate limit infrastructure encounters an error, requests are allowed through (fail-open) so a transient D1 issue never blocks your workflow.
@@ -779,12 +834,14 @@ Natural language recall — "What did I decide about X?"
 ---
 
 ### brain_timeline
-Chronological view of recent entries.
+Chronological view of recent entries across all types.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | \`days\` | number | No | Days back (default: 7) |
-| \`limit\` | number | No | Max results (default: 50) |`,
+| \`limit\` | number | No | Max results (default: 50) |
+| \`offset\` | number | No | Skip N results for pagination (default: 0) |
+| \`type_filter\` | string[] | No | Filter by entry type (e.g. \`["thought", "decision"]\`) |`,
       },
       {
         id: "ref-analytics",
