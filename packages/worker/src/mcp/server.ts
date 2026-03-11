@@ -17,7 +17,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import * as Sentry from '@sentry/cloudflare'
 
-export const SERVER_VERSION = '1.8.0'
+export const SERVER_VERSION = '1.11.0'
 
 // ═══════════════════════════════════════════════════════════════════
 // Types

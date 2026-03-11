@@ -8,6 +8,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.0',
+    date: '2026-03-11',
+    title: 'Sentry Error Monitoring',
+    description: 'Production error monitoring with Sentry — all unhandled errors, 5xx responses, and MCP tool failures are now tracked with full context.',
+    changes: [
+      { type: 'added', text: 'Sentry DSN configured for production error tracking via @sentry/cloudflare' },
+      { type: 'added', text: 'Per-MCP-tool Sentry spans for tracing tool call performance' },
+      { type: 'improved', text: 'Error handler attaches requestId, user context, and error codes to Sentry events' },
+      { type: 'improved', text: 'Sentry.withScope() prevents tag bleed between concurrent requests' },
+    ],
+  },
+  {
     version: '1.10.0',
     date: '2026-03-11',
     title: 'MCP OAuth 2.1 for Claude Desktop',
