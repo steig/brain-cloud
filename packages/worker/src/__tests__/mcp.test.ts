@@ -115,15 +115,15 @@ describe('MCP JSON-RPC endpoint', () => {
   // ── Auth ───────────────────────────────────────────────────────────
 
   describe('auth', () => {
-    it('rejects requests without X-API-Key', async () => {
+    it('rejects requests without auth header (403, not 401, to avoid OAuth)', async () => {
       const res = await SELF.fetch(new Request('http://localhost/mcp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': MCP_ACCEPT },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
       }))
-      expect(res.status).toBe(401)
+      expect(res.status).toBe(403)
       const body = await res.json() as { error: { message: string } }
-      expect(body.error.message).toContain('Missing X-API-Key')
+      expect(body.error.message).toContain('Missing')
     })
 
     it('rejects requests with invalid API key', async () => {
@@ -131,9 +131,22 @@ describe('MCP JSON-RPC endpoint', () => {
         { jsonrpc: '2.0', id: 1, method: 'tools/list' },
         { 'X-API-Key': 'invalid-key-does-not-exist' },
       ))
-      expect(res.status).toBe(401)
+      expect(res.status).toBe(403)
       const body = await res.json() as { error: { message: string } }
       expect(body.error.message).toContain('Invalid API key')
+    })
+
+    it('accepts Authorization: Bearer as alternative to X-API-Key', async () => {
+      const res = await SELF.fetch(new Request('http://localhost/mcp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': MCP_ACCEPT,
+          'Authorization': `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }),
+      }))
+      expect(res.status).toBe(200)
     })
   })
 

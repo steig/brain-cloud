@@ -44,6 +44,7 @@ app.get('/', async (c) => {
   const opts: Parameters<typeof q.listDecisions>[2] = {
     withJoins: true,
     limit: parseInt(url.searchParams.get('limit') || '50'),
+    offset: parseInt(url.searchParams.get('offset') || '0') || undefined,
   }
 
   for (const [key, value] of url.searchParams) {

@@ -1,18 +1,48 @@
+import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { useSessions } from "@/lib/queries";
+import { useLoadMore } from "@/lib/use-load-more";
+import { api, buildParams, type Session } from "@/lib/api";
 import { SessionList } from "./session-list";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
+import { LoadMoreButton } from "@/components/shared/load-more-button";
 
 export function SessionsPage() {
-  const sessions = useSessions({ order: "started_at.desc" });
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+
+  const filterParams: [string, string][] = [
+    ["order", "started_at.desc"],
+  ];
+  if (dateRange?.from) filterParams.push(["started_at", `gte.${dateRange.from}T00:00:00Z`]);
+  if (dateRange?.to) filterParams.push(["started_at", `lte.${dateRange.to}T23:59:59Z`]);
+
+  const countParams: [string, string][] = [];
+  if (dateRange?.from) countParams.push(["started_at", `gte.${dateRange.from}T00:00:00Z`]);
+  if (dateRange?.to) countParams.push(["started_at", `lte.${dateRange.to}T23:59:59Z`]);
+
+  const { items, totalCount, isLoading, isFetchingMore, hasMore, loadMore } = useLoadMore<Session>({
+    queryKey: ["sessions", dateRange],
+    queryFn: ({ limit, offset }) => {
+      const params: [string, string][] = [...filterParams, ["limit", String(limit)], ["offset", String(offset)]];
+      return api.get<Session[]>(`/api/sessions?${buildParams(params)}`);
+    },
+    countFn: () => api.head(`/api/sessions?${buildParams(countParams)}`),
+    pageSize: 30,
+  });
 
   return (
     <div className="space-y-4" data-tour="sessions">
       <Helmet><title>Sessions — Brain Cloud</title></Helmet>
-      <h1 className="text-2xl font-bold">Sessions</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">
+          Sessions{totalCount !== null ? ` (${totalCount})` : ""}
+        </h1>
+      </div>
+      <DateRangeFilter value={dateRange} onChange={setDateRange} />
       <SessionList
-        sessions={sessions.data ?? []}
-        isLoading={sessions.isLoading}
+        sessions={items}
+        isLoading={isLoading}
       />
+      <LoadMoreButton hasMore={hasMore} isLoading={isFetchingMore} onClick={loadMore} />
     </div>
   );
 }

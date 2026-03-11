@@ -43,6 +43,7 @@ app.get('/', async (c) => {
 
   const opts: Parameters<typeof q.listSessions>[2] = {
     limit: parseInt(url.searchParams.get('limit') || '30'),
+    offset: parseInt(url.searchParams.get('offset') || '0') || undefined,
   }
 
   for (const [key, value] of url.searchParams) {
@@ -77,6 +78,18 @@ app.get('/', async (c) => {
   }))
 
   return c.json(transformed)
+})
+
+app.on('HEAD', '/', async (c) => {
+  const user = c.get('user')
+  const url = new URL(c.req.url)
+  const filter: { startedAfter?: string; startedBefore?: string } = {}
+  for (const [key, value] of url.searchParams) {
+    if (key === 'started_at' && value.startsWith('gte.')) filter.startedAfter = value.slice(4)
+    if (key === 'started_at' && value.startsWith('lte.')) filter.startedBefore = value.slice(4)
+  }
+  const count = await q.countSessions(c.env.DB, user.id, filter)
+  return c.body(null, 200, { 'Content-Range': `0-0/${count}` })
 })
 
 app.post('/', async (c) => {

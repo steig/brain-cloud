@@ -1644,12 +1644,12 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
     )
   }
 
-  // Auth via X-API-Key (hashed lookup only — no plaintext fallback)
-  const apiKey = c.req.header('X-API-Key')
+  // Auth via X-API-Key — use 403 (not 401) to avoid triggering MCP OAuth flow
+  const apiKey = c.req.header('X-API-Key') || c.req.header('Authorization')?.replace(/^Bearer\s+/i, '')
   if (!apiKey) {
     return c.json(
-      { jsonrpc: '2.0', error: { code: -32000, message: 'Missing X-API-Key header' }, id: null },
-      401
+      { jsonrpc: '2.0', error: { code: -32000, message: 'Missing X-API-Key or Authorization header' }, id: null },
+      403
     )
   }
 
@@ -1659,7 +1659,7 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
   if (!user) {
     return c.json(
       { jsonrpc: '2.0', error: { code: -32000, message: 'Invalid API key' }, id: null },
-      401
+      403
     )
   }
 
@@ -1667,7 +1667,7 @@ export async function mcpHandler(c: Context<{ Bindings: Env; Variables: Variable
   if ('expired' in user && user.expired) {
     return c.json(
       { jsonrpc: '2.0', error: { code: -32000, message: 'API key has expired' }, id: null },
-      401
+      403
     )
   }
 

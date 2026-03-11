@@ -118,6 +118,8 @@ export const timelineSchema = z.object({
   from_date: z.string(),
   to_date: z.string(),
   limit_rows: z.number().int().positive().optional(),
+  offset_rows: z.number().int().nonnegative().optional(),
+  type_filter: z.array(z.string()).optional(),
 })
 
 export const registerMachineSchema = z.object({

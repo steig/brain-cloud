@@ -75,9 +75,27 @@ function guardDemo(): void {
   if (_demoMode) throw new DemoBlockedError();
 }
 
+// Build query string supporting duplicate keys (e.g. created_at=gte.X&created_at=lte.Y)
+export function buildParams(entries: [string, string][]): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of entries) {
+    if (v) sp.append(k, v);
+  }
+  return sp.toString();
+}
+
 // REST helpers
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  head: async (path: string): Promise<number> => {
+    const res = await fetch(`${BASE}${path}`, {
+      method: "HEAD",
+      credentials: "include",
+    });
+    const range = res.headers.get("Content-Range") ?? "";
+    const match = range.match(/\/(\d+)$/);
+    return match ? parseInt(match[1], 10) : 0;
+  },
   post: <T>(path: string, body?: unknown) => {
     guardDemo();
     return request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined });

@@ -4,44 +4,38 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { BrainSummary } from "@/lib/api";
 
 interface StatsCardsProps {
-  thoughtCount?: number;
-  decisionCount?: number;
-  sessionCount?: number;
   summary?: BrainSummary;
   isLoading: boolean;
 }
 
 export function StatsCards({
-  thoughtCount,
-  decisionCount,
-  sessionCount,
   summary,
   isLoading,
 }: StatsCardsProps) {
   const stats = [
     {
       title: "Thoughts",
-      value: thoughtCount ?? 0,
+      value: summary?.stats?.total_thoughts ?? 0,
       icon: Lightbulb,
-      description: "this week",
+      description: "in period",
     },
     {
       title: "Decisions",
-      value: decisionCount ?? 0,
+      value: summary?.stats?.total_decisions ?? 0,
       icon: GitFork,
-      description: "this week",
+      description: "in period",
     },
     {
       title: "Sessions",
-      value: sessionCount ?? 0,
+      value: summary?.stats?.total_sessions ?? 0,
       icon: Timer,
-      description: "this week",
+      description: "in period",
     },
     {
       title: "Active Days",
       value: summary?.stats?.active_days ?? 0,
       icon: TrendingUp,
-      description: "this week",
+      description: "in period",
     },
   ];
 

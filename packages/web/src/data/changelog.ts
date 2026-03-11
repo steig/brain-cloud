@@ -8,6 +8,23 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.9.0',
+    date: '2026-03-11',
+    title: 'Pagination & Date Range Filtering',
+    description: 'All list pages and the dashboard now support "load more" pagination and date range filtering, so older entries are no longer hidden behind a 50-item cap.',
+    changes: [
+      { type: 'added', text: '"Load more" button on thoughts, decisions, sessions, and dashboard timeline' },
+      { type: 'added', text: 'Date range presets (7d, 30d, 90d, All) plus custom date inputs on all list pages' },
+      { type: 'added', text: 'Total counts displayed in page headings via HEAD endpoints' },
+      { type: 'added', text: 'Sessions HEAD endpoint returning Content-Range count' },
+      { type: 'added', text: 'Offset/limit pagination support in sessions, decisions, and timeline APIs' },
+      { type: 'added', text: 'Timeline type filtering — filter by entry type via type_filter param' },
+      { type: 'improved', text: 'Dashboard defaults to 30-day view (was 7 days) and stats reflect the selected date range' },
+      { type: 'improved', text: 'Stats cards now powered by brain_summary data scoped to date range' },
+      { type: 'fixed', text: 'MCP auth errors now return 403 instead of 401 + Bearer auth support' },
+    ],
+  },
+  {
     version: '1.8.0',
     date: '2026-03-09',
     title: 'MCP SDK + Sentry Observability',

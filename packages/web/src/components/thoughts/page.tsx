@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { useThoughts, useCreateThought, useDeleteThought } from "@/lib/queries";
+import { useCreateThought, useDeleteThought } from "@/lib/queries";
+import { useLoadMore } from "@/lib/use-load-more";
+import { api, buildParams, type Thought } from "@/lib/api";
 import { ThoughtList } from "./thought-list";
 import { ThoughtForm } from "./thought-form";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
+import { LoadMoreButton } from "@/components/shared/load-more-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,20 +23,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus } from "lucide-react";
-import type { Thought } from "@/lib/api";
 
 const types = ["all", "note", "idea", "question", "todo", "insight"] as const;
 
 export function ThoughtsPage() {
   const [typeFilter, setTypeFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const params: Record<string, string> = {
-    order: "created_at.desc",
-  };
-  if (typeFilter !== "all") params.type = `eq.${typeFilter}`;
+  const filterParams: [string, string][] = [
+    ["order", "created_at.desc"],
+  ];
+  if (typeFilter !== "all") filterParams.push(["type", `eq.${typeFilter}`]);
+  if (dateRange?.from) filterParams.push(["created_at", `gte.${dateRange.from}T00:00:00Z`]);
+  if (dateRange?.to) filterParams.push(["created_at", `lte.${dateRange.to}T23:59:59Z`]);
 
-  const thoughts = useThoughts(params);
+  const countParams: [string, string][] = [];
+  if (typeFilter !== "all") countParams.push(["type", `eq.${typeFilter}`]);
+  if (dateRange?.from) countParams.push(["created_at", `gte.${dateRange.from}T00:00:00Z`]);
+  if (dateRange?.to) countParams.push(["created_at", `lte.${dateRange.to}T23:59:59Z`]);
+
+  const { items, totalCount, isLoading, isFetchingMore, hasMore, loadMore } = useLoadMore<Thought>({
+    queryKey: ["thoughts", typeFilter, dateRange],
+    queryFn: ({ limit, offset }) => {
+      const params: [string, string][] = [...filterParams, ["limit", String(limit)], ["offset", String(offset)]];
+      return api.get<Thought[]>(`/api/thoughts?${buildParams(params)}`);
+    },
+    countFn: () => api.head(`/api/thoughts?${buildParams(countParams)}`),
+    pageSize: 30,
+  });
+
   const createThought = useCreateThought();
   const deleteThought = useDeleteThought();
 
@@ -45,7 +65,9 @@ export function ThoughtsPage() {
     <div className="space-y-4" data-tour="thoughts">
       <Helmet><title>Thoughts — Brain Cloud</title></Helmet>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Thoughts</h1>
+        <h1 className="text-2xl font-bold">
+          Thoughts{totalCount !== null ? ` (${totalCount})` : ""}
+        </h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -65,7 +87,7 @@ export function ThoughtsPage() {
         </Dialog>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-4">
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-36">
             <SelectValue placeholder="Type" />
@@ -78,13 +100,15 @@ export function ThoughtsPage() {
             ))}
           </SelectContent>
         </Select>
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
       </div>
 
       <ThoughtList
-        thoughts={thoughts.data ?? []}
-        isLoading={thoughts.isLoading}
+        thoughts={items}
+        isLoading={isLoading}
         onDelete={(id) => deleteThought.mutate(id)}
       />
+      <LoadMoreButton hasMore={hasMore} isLoading={isFetchingMore} onClick={loadMore} />
     </div>
   );
 }

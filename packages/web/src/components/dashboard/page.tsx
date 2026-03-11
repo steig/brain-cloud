@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { Helmet } from "react-helmet-async";
-import { useTimeline, useBrainSummary, useThoughts, useDecisions, useSessions, useApiKeys, useReminders } from "@/lib/queries";
+import { useBrainSummary, useApiKeys, useReminders } from "@/lib/queries";
+import { useLoadMore } from "@/lib/use-load-more";
 import { useDemo } from "@/lib/demo-context";
+import { api, type TimelineEntry } from "@/lib/api";
 import { StatsCards } from "./stats-cards";
 import { Timeline } from "./timeline";
+import { DateRangeFilter, type DateRange } from "@/components/shared/date-range-filter";
+import { LoadMoreButton } from "@/components/shared/load-more-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SetupWizard, DISMISSED_KEY } from "@/components/onboarding/setup-wizard";
 
@@ -13,13 +17,33 @@ function daysAgo(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function DashboardPage() {
   const { isDemo } = useDemo();
-  const timeline = useTimeline(7);
-  const summary = useBrainSummary(daysAgo(7), daysAgo(0));
-  const thoughts = useThoughts({ order: "created_at.desc", limit: "5" });
-  const decisions = useDecisions({ order: "created_at.desc", limit: "5" });
-  const sessions = useSessions({ order: "started_at.desc", limit: "5" });
+  const [dateRange, setDateRange] = useState<DateRange | null>({
+    from: daysAgo(30),
+    to: todayISO(),
+  });
+
+  const fromDate = dateRange?.from || "2020-01-01";
+  const toDate = dateRange?.to || todayISO();
+
+  const { items, isLoading: timelineLoading, isFetchingMore, hasMore, loadMore } = useLoadMore<TimelineEntry>({
+    queryKey: ["timeline", dateRange],
+    queryFn: ({ limit, offset }) =>
+      api.rpc<TimelineEntry[]>("timeline", {
+        from_date: fromDate,
+        to_date: toDate,
+        limit_rows: limit,
+        offset_rows: offset,
+      }),
+    pageSize: 30,
+  });
+
+  const summary = useBrainSummary(fromDate, toDate);
   const apiKeys = useApiKeys();
   const pendingReminders = useReminders({ status: "pending" });
 
@@ -43,9 +67,6 @@ export function DashboardPage() {
       {showWizard && <SetupWizard onDismiss={() => setDismissed(true)} />}
 
       <StatsCards
-        thoughtCount={thoughts.data?.length}
-        decisionCount={decisions.data?.length}
-        sessionCount={sessions.data?.length}
         summary={summary.data}
         isLoading={summary.isLoading}
       />
@@ -74,15 +95,21 @@ export function DashboardPage() {
       )}
 
       <div>
-        <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
-        {timeline.isLoading ? (
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h2 className="text-lg font-semibold">Recent Activity</h2>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        </div>
+        {timelineLoading ? (
           <div className="space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full" />
             ))}
           </div>
         ) : (
-          <Timeline entries={timeline.data ?? []} />
+          <>
+            <Timeline entries={items} />
+            <LoadMoreButton hasMore={hasMore} isLoading={isFetchingMore} onClick={loadMore} />
+          </>
         )}
       </div>
     </div>

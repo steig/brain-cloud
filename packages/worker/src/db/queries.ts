@@ -385,6 +385,7 @@ export async function listDecisions(
     projectId?: string
     aiModel?: string
     limit?: number
+    offset?: number
     createdAfter?: string
     createdBefore?: string
     ids?: string[]
@@ -430,6 +431,11 @@ export async function listDecisions(
     query = `SELECT d.* FROM decisions d WHERE ${conditions.join(' AND ')} ORDER BY d.created_at DESC LIMIT ?`
   }
   binds.push(limit)
+
+  if (opts.offset) {
+    query += ' OFFSET ?'
+    binds.push(opts.offset)
+  }
 
   const { results } = await db.prepare(query).bind(...binds).all()
   return results as unknown as DecisionRow[]
@@ -567,6 +573,7 @@ export async function listSessions(
     startedAfter?: string
     startedBefore?: string
     limit?: number
+    offset?: number
     withScores?: boolean
   } = {}
 ): Promise<SessionRow[]> {
@@ -581,7 +588,7 @@ export async function listSessions(
   const limit = opts.limit || 30
   binds.push(limit)
 
-  const query = `SELECT s.*, p.name as project_name,
+  let query = `SELECT s.*, p.name as project_name,
                  u.name as user_name, u.avatar_url as user_avatar_url, u.github_username as user_github_username
                  FROM sessions s
                  LEFT JOIN projects p ON s.project_id = p.id
@@ -589,8 +596,32 @@ export async function listSessions(
                  WHERE ${conditions.join(' AND ')}
                  ORDER BY s.started_at DESC LIMIT ?`
 
+  if (opts.offset) {
+    query += ' OFFSET ?'
+    binds.push(opts.offset)
+  }
+
   const { results } = await db.prepare(query).bind(...binds).all()
   return results as unknown as SessionRow[]
+}
+
+export async function countSessions(
+  db: D1Database, userId: string, filter?: { startedAfter?: string; startedBefore?: string }
+): Promise<number> {
+  const conditions: string[] = ['user_id = ?']
+  const binds: unknown[] = [userId]
+  if (filter?.startedAfter) {
+    conditions.push('started_at >= ?')
+    binds.push(filter.startedAfter)
+  }
+  if (filter?.startedBefore) {
+    conditions.push('started_at <= ?')
+    binds.push(filter.startedBefore)
+  }
+  const row = await db.prepare(
+    `SELECT COUNT(*) as cnt FROM sessions WHERE ${conditions.join(' AND ')}`
+  ).bind(...binds).first<{ cnt: number }>()
+  return row?.cnt ?? 0
 }
 
 export async function getSession(
@@ -838,9 +869,13 @@ type TimelineRow = { id: string; type: string; content: string; subtype: string 
 
 export async function getTimeline(
   db: D1Database, userId: string,
-  fromDate: string, toDate: string, limit: number = 50
+  fromDate: string, toDate: string, limit: number = 50, offset: number = 0,
+  typeFilter?: string[]
 ): Promise<TimelineRow[]> {
   // D1 has a compound SELECT term limit, so we run two queries and merge
+  // We fetch enough to cover offset+limit, then slice
+  const fetchLimit = offset + limit
+
   const core = db.prepare(
     `SELECT t.id, 'thought' as type, t.type as subtype, t.content, p.name as project_name, t.created_at
      FROM thoughts t LEFT JOIN projects p ON t.project_id = p.id
@@ -854,7 +889,7 @@ export async function getTimeline(
      FROM sessions s LEFT JOIN projects p ON s.project_id = p.id
      WHERE s.user_id = ? AND s.started_at BETWEEN ? AND ?
      ORDER BY created_at DESC LIMIT ?`
-  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, limit)
+  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, fetchLimit)
 
   const extra = db.prepare(
     `SELECT se.id, 'sentiment' as type, se.feeling as subtype, se.target_name || ': ' || COALESCE(se.reason, se.feeling) as content, p.name as project_name, se.created_at
@@ -869,12 +904,19 @@ export async function getTimeline(
      FROM conversations c LEFT JOIN projects p ON c.project_id = p.id
      WHERE c.user_id = ? AND c.created_at BETWEEN ? AND ?
      ORDER BY created_at DESC LIMIT ?`
-  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, limit)
+  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, fetchLimit)
 
   const [coreRes, extraRes] = await db.batch([core, extra])
-  const all = [...(coreRes.results as TimelineRow[]), ...(extraRes.results as TimelineRow[])]
+  let all = [...(coreRes.results as TimelineRow[]), ...(extraRes.results as TimelineRow[])]
+
+  // Filter by type if requested
+  if (typeFilter?.length) {
+    const allowed = new Set(typeFilter)
+    all = all.filter(r => allowed.has(r.type))
+  }
+
   all.sort((a, b) => b.created_at.localeCompare(a.created_at))
-  return all.slice(0, limit)
+  return all.slice(offset, offset + limit)
 }
 
 // ═══════════════════════════════════════════════════════════════════

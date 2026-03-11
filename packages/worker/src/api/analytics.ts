@@ -46,7 +46,7 @@ app.post('/timeline', async (c) => {
   const body = await c.req.json()
   const v = validateBody(timelineSchema, body)
   if (!v.success) return c.json({ error: v.error, details: v.details }, 400)
-  const results = await q.getTimeline(c.env.DB, user.id, v.data.from_date, v.data.to_date, v.data.limit_rows)
+  const results = await q.getTimeline(c.env.DB, user.id, v.data.from_date, v.data.to_date, v.data.limit_rows, v.data.offset_rows, v.data.type_filter)
   return c.json(results)
 })
 
