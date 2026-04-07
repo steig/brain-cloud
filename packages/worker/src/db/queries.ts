@@ -875,36 +875,46 @@ export async function getTimeline(
   // D1 has a compound SELECT term limit, so we run two queries and merge
   // We fetch enough to cover offset+limit, then slice
   const fetchLimit = offset + limit
+  const toDateExclusive = toDate
 
   const core = db.prepare(
     `SELECT t.id, 'thought' as type, t.type as subtype, t.content, p.name as project_name, t.created_at
      FROM thoughts t LEFT JOIN projects p ON t.project_id = p.id
-     WHERE t.user_id = ? AND t.deleted_at IS NULL AND t.created_at BETWEEN ? AND ?
+     WHERE t.user_id = ? AND t.deleted_at IS NULL AND t.created_at >= ? AND t.created_at < datetime(?, '+1 day')
      UNION ALL
      SELECT d.id, 'decision' as type, NULL as subtype, d.title as content, p.name as project_name, d.created_at
      FROM decisions d LEFT JOIN projects p ON d.project_id = p.id
-     WHERE d.user_id = ? AND d.deleted_at IS NULL AND d.created_at BETWEEN ? AND ?
+     WHERE d.user_id = ? AND d.deleted_at IS NULL AND d.created_at >= ? AND d.created_at < datetime(?, '+1 day')
      UNION ALL
-     SELECT s.id, 'session' as type, NULL as subtype, COALESCE(s.summary, 'Session') as content, p.name as project_name, s.started_at as created_at
+     SELECT s.id, 'session' as type, NULL as subtype,
+       COALESCE(
+         s.summary,
+         json_extract(s.accomplishments, '$[0]'),
+         json_extract(s.goals, '$[0]'),
+         json_extract(s.blockers, '$[0]'),
+         'Session'
+       ) as content,
+       p.name as project_name,
+       COALESCE(s.ended_at, s.started_at) as created_at
      FROM sessions s LEFT JOIN projects p ON s.project_id = p.id
-     WHERE s.user_id = ? AND s.started_at BETWEEN ? AND ?
+     WHERE s.user_id = ? AND COALESCE(s.ended_at, s.started_at) >= ? AND COALESCE(s.ended_at, s.started_at) < datetime(?, '+1 day')
      ORDER BY created_at DESC LIMIT ?`
-  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, fetchLimit)
+  ).bind(userId, fromDate, toDateExclusive, userId, fromDate, toDateExclusive, userId, fromDate, toDateExclusive, fetchLimit)
 
   const extra = db.prepare(
     `SELECT se.id, 'sentiment' as type, se.feeling as subtype, se.target_name || ': ' || COALESCE(se.reason, se.feeling) as content, p.name as project_name, se.created_at
      FROM sentiment se LEFT JOIN projects p ON se.project_id = p.id
-     WHERE se.user_id = ? AND se.created_at BETWEEN ? AND ?
+     WHERE se.user_id = ? AND se.created_at >= ? AND se.created_at < datetime(?, '+1 day')
      UNION ALL
      SELECT h.id, 'handoff' as type, h.handoff_type as subtype, h.message as content, h.to_project as project_name, h.created_at
      FROM handoffs h
-     WHERE h.user_id = ? AND h.created_at BETWEEN ? AND ?
+     WHERE h.user_id = ? AND h.created_at >= ? AND h.created_at < datetime(?, '+1 day')
      UNION ALL
      SELECT c.id, 'conversation' as type, NULL as subtype, COALESCE(c.response_summary, c.prompt_text) as content, p.name as project_name, c.created_at
      FROM conversations c LEFT JOIN projects p ON c.project_id = p.id
-     WHERE c.user_id = ? AND c.created_at BETWEEN ? AND ?
+     WHERE c.user_id = ? AND c.created_at >= ? AND c.created_at < datetime(?, '+1 day')
      ORDER BY created_at DESC LIMIT ?`
-  ).bind(userId, fromDate, toDate, userId, fromDate, toDate, userId, fromDate, toDate, fetchLimit)
+  ).bind(userId, fromDate, toDateExclusive, userId, fromDate, toDateExclusive, userId, fromDate, toDateExclusive, fetchLimit)
 
   const [coreRes, extraRes] = await db.batch([core, extra])
   let all = [...(coreRes.results as TimelineRow[]), ...(extraRes.results as TimelineRow[])]
@@ -1330,6 +1340,291 @@ export async function claimHandoff(
      WHERE id = ? AND user_id = ? AND status = 'pending'`
   ).bind(note ?? null, id, userId).run()
   return (result.meta?.changes ?? 0) > 0
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Orchestrator (Agents, Rooms, Messages, Presence)
+// ═══════════════════════════════════════════════════════════════════
+
+export interface OrchestratorAgentRow {
+  id: string
+  user_id: string
+  name: string
+  provider: string | null
+  model: string | null
+  status: string
+  metadata: string | null
+  last_seen_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface OrchestratorAgentInput {
+  name: string
+  provider?: string
+  model?: string
+  status?: string
+  metadata?: Record<string, unknown>
+}
+
+export async function upsertOrchestratorAgent(
+  db: D1Database, userId: string, input: OrchestratorAgentInput
+): Promise<OrchestratorAgentRow> {
+  const existing = await db.prepare(
+    `SELECT * FROM orchestrator_agents WHERE user_id = ? AND name = ?`
+  ).bind(userId, input.name).first<OrchestratorAgentRow>()
+
+  if (existing) {
+    await db.prepare(
+      `UPDATE orchestrator_agents
+       SET provider = COALESCE(?, provider),
+           model = COALESCE(?, model),
+           status = COALESCE(?, status),
+           metadata = ?,
+           last_seen_at = datetime('now'),
+           updated_at = datetime('now')
+       WHERE id = ? AND user_id = ?`
+    ).bind(
+      input.provider ?? null,
+      input.model ?? null,
+      input.status ?? null,
+      toJson(input.metadata || parseJson(existing.metadata) || {}),
+      existing.id,
+      userId
+    ).run()
+    return (await db.prepare('SELECT * FROM orchestrator_agents WHERE id = ?').bind(existing.id).first())! as OrchestratorAgentRow
+  }
+
+  const id = crypto.randomUUID()
+  await db.prepare(
+    `INSERT INTO orchestrator_agents (id, user_id, name, provider, model, status, metadata, last_seen_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'), datetime('now'))`
+  ).bind(
+    id,
+    userId,
+    input.name,
+    input.provider ?? null,
+    input.model ?? null,
+    input.status ?? 'idle',
+    toJson(input.metadata || {})
+  ).run()
+
+  return (await db.prepare('SELECT * FROM orchestrator_agents WHERE id = ?').bind(id).first())! as OrchestratorAgentRow
+}
+
+export async function listOrchestratorAgents(
+  db: D1Database, userId: string
+): Promise<OrchestratorAgentRow[]> {
+  const { results } = await db.prepare(
+    `SELECT * FROM orchestrator_agents WHERE user_id = ? ORDER BY name`
+  ).bind(userId).all()
+  return results as unknown as OrchestratorAgentRow[]
+}
+
+export async function updateOrchestratorAgentStatus(
+  db: D1Database, userId: string, id: string, status: string
+): Promise<boolean> {
+  const result = await db.prepare(
+    `UPDATE orchestrator_agents SET status = ?, last_seen_at = datetime('now'), updated_at = datetime('now')
+     WHERE id = ? AND user_id = ?`
+  ).bind(status, id, userId).run()
+  return (result.meta?.changes ?? 0) > 0
+}
+
+export interface OrchestratorRoomRow {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  visibility: string
+  metadata: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface OrchestratorRoomInput {
+  name: string
+  description?: string
+  visibility?: string
+  metadata?: Record<string, unknown>
+}
+
+export async function createOrchestratorRoom(
+  db: D1Database, userId: string, input: OrchestratorRoomInput
+): Promise<OrchestratorRoomRow> {
+  const existing = await db.prepare(
+    `SELECT * FROM orchestrator_rooms WHERE user_id = ? AND name = ?`
+  ).bind(userId, input.name).first<OrchestratorRoomRow>()
+
+  if (existing) {
+    await db.prepare(
+      `UPDATE orchestrator_rooms
+       SET description = COALESCE(?, description),
+           visibility = COALESCE(?, visibility),
+           metadata = ?,
+           updated_at = datetime('now')
+       WHERE id = ? AND user_id = ?`
+    ).bind(
+      input.description ?? null,
+      input.visibility ?? null,
+      toJson(input.metadata || parseJson(existing.metadata) || {}),
+      existing.id,
+      userId
+    ).run()
+    return (await db.prepare('SELECT * FROM orchestrator_rooms WHERE id = ?').bind(existing.id).first())! as OrchestratorRoomRow
+  }
+
+  const id = crypto.randomUUID()
+  await db.prepare(
+    `INSERT INTO orchestrator_rooms (id, user_id, name, description, visibility, metadata, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+  ).bind(
+    id,
+    userId,
+    input.name,
+    input.description ?? null,
+    input.visibility ?? 'private',
+    toJson(input.metadata || {})
+  ).run()
+
+  return (await db.prepare('SELECT * FROM orchestrator_rooms WHERE id = ?').bind(id).first())! as OrchestratorRoomRow
+}
+
+export async function listOrchestratorRooms(
+  db: D1Database, userId: string
+): Promise<OrchestratorRoomRow[]> {
+  const { results } = await db.prepare(
+    `SELECT * FROM orchestrator_rooms WHERE user_id = ? ORDER BY created_at DESC`
+  ).bind(userId).all()
+  return results as unknown as OrchestratorRoomRow[]
+}
+
+export interface OrchestratorMessageRow {
+  id: string
+  user_id: string
+  room_id: string
+  sender_type: string
+  sender_name: string | null
+  agent_id: string | null
+  content: string
+  metadata: string | null
+  created_at: string
+  agent_name?: string | null
+}
+
+export interface OrchestratorMessageInput {
+  sender_type?: string
+  sender_name?: string
+  agent_id?: string
+  content: string
+  metadata?: Record<string, unknown>
+}
+
+export async function createOrchestratorMessage(
+  db: D1Database, userId: string, roomId: string, input: OrchestratorMessageInput
+): Promise<OrchestratorMessageRow> {
+  const id = crypto.randomUUID()
+  await db.prepare(
+    `INSERT INTO orchestrator_messages (id, user_id, room_id, sender_type, sender_name, agent_id, content, metadata, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+  ).bind(
+    id,
+    userId,
+    roomId,
+    input.sender_type ?? 'user',
+    input.sender_name ?? null,
+    input.agent_id ?? null,
+    input.content,
+    toJson(input.metadata || {})
+  ).run()
+
+  if (input.agent_id) {
+    await db.prepare(
+      `UPDATE orchestrator_agents SET last_seen_at = datetime('now'), updated_at = datetime('now')
+       WHERE id = ? AND user_id = ?`
+    ).bind(input.agent_id, userId).run()
+  }
+
+  return (await db.prepare('SELECT * FROM orchestrator_messages WHERE id = ?').bind(id).first())! as OrchestratorMessageRow
+}
+
+export async function listOrchestratorMessages(
+  db: D1Database, userId: string, roomId: string, opts: { limit?: number; before?: string } = {}
+): Promise<OrchestratorMessageRow[]> {
+  const conditions: string[] = ['m.user_id = ?', 'm.room_id = ?']
+  const binds: unknown[] = [userId, roomId]
+
+  if (opts.before) {
+    conditions.push('m.created_at < ?')
+    binds.push(opts.before)
+  }
+
+  binds.push(opts.limit || 50)
+
+  const { results } = await db.prepare(
+    `SELECT m.*, a.name as agent_name
+     FROM orchestrator_messages m
+     LEFT JOIN orchestrator_agents a ON m.agent_id = a.id
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY m.created_at DESC
+     LIMIT ?`
+  ).bind(...binds).all()
+  return results as unknown as OrchestratorMessageRow[]
+}
+
+export interface OrchestratorPresenceRow {
+  id: string
+  user_id: string
+  room_id: string
+  agent_id: string
+  status: string
+  last_seen_at: string | null
+  metadata: string | null
+  created_at: string
+  updated_at: string
+  agent_name?: string | null
+}
+
+export async function upsertOrchestratorPresence(
+  db: D1Database, userId: string, roomId: string, agentId: string, status: string, metadata?: Record<string, unknown>
+): Promise<OrchestratorPresenceRow> {
+  const id = crypto.randomUUID()
+  await db.prepare(
+    `INSERT INTO orchestrator_presence (id, user_id, room_id, agent_id, status, last_seen_at, metadata, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, datetime('now'), ?, datetime('now'), datetime('now'))
+     ON CONFLICT(user_id, room_id, agent_id) DO UPDATE SET
+       status = excluded.status,
+       last_seen_at = datetime('now'),
+       metadata = excluded.metadata,
+       updated_at = datetime('now')`
+  ).bind(
+    id,
+    userId,
+    roomId,
+    agentId,
+    status,
+    toJson(metadata || {})
+  ).run()
+
+  return (await db.prepare(
+    `SELECT p.*, a.name as agent_name
+     FROM orchestrator_presence p
+     LEFT JOIN orchestrator_agents a ON p.agent_id = a.id
+     WHERE p.user_id = ? AND p.room_id = ? AND p.agent_id = ?`
+  ).bind(userId, roomId, agentId).first())! as OrchestratorPresenceRow
+}
+
+export async function listOrchestratorPresence(
+  db: D1Database, userId: string, roomId: string
+): Promise<OrchestratorPresenceRow[]> {
+  const { results } = await db.prepare(
+    `SELECT p.*, a.name as agent_name
+     FROM orchestrator_presence p
+     LEFT JOIN orchestrator_agents a ON p.agent_id = a.id
+     WHERE p.user_id = ? AND p.room_id = ?
+     ORDER BY p.updated_at DESC`
+  ).bind(userId, roomId).all()
+  return results as unknown as OrchestratorPresenceRow[]
 }
 
 // ═══════════════════════════════════════════════════════════════════

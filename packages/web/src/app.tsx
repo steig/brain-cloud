@@ -43,6 +43,7 @@ const ChangelogPage = lazy(() => import("./components/changelog/page").then(m =>
 const DocsPage = lazy(() => import("./components/docs/page").then(m => ({ default: m.DocsPage })));
 const AskPage = lazy(() => import("./components/ask/page").then(m => ({ default: m.AskPage })));
 const RemindersPage = lazy(() => import("./components/reminders/page").then(m => ({ default: m.RemindersPage })));
+const OrchestratorPage = lazy(() => import("./components/orchestrator/page").then(m => ({ default: m.OrchestratorPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -97,6 +98,7 @@ function AppLayout() {
             <Route path="teams/:id/admin" element={<LazyRoute><TeamAdminPage /></LazyRoute>} />
             <Route path="teams/:id/workspace" element={<LazyRoute><TeamWorkspacePage /></LazyRoute>} />
             <Route path="teams/:id/coaching" element={<LazyRoute><TeamCoachingPage /></LazyRoute>} />
+            <Route path="orchestrator" element={<LazyRoute><OrchestratorPage /></LazyRoute>} />
             <Route path="projects" element={<LazyRoute><ProjectsPage /></LazyRoute>} />
             <Route path="github" element={<LazyRoute><GitHubPage /></LazyRoute>} />
             <Route path="admin" element={<LazyRoute><AdminDashboardPage /></LazyRoute>} />

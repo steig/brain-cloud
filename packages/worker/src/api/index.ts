@@ -17,6 +17,7 @@ import { insightsRoutes } from './insights'
 import { adminRoutes } from './admin'
 import { notificationRoutes } from './notifications'
 import { reminderRoutes } from './reminders'
+import { orchestratorRoutes } from './orchestrator'
 
 const api = new Hono<{ Bindings: Env; Variables: Variables }>()
 
@@ -40,5 +41,6 @@ api.route('/insights', insightsRoutes)
 api.route('/admin', adminRoutes)
 api.route('/notifications', notificationRoutes)
 api.route('/reminders', reminderRoutes)
+api.route('/orchestrator', orchestratorRoutes)
 
 export { api as apiRoutes }

@@ -17,7 +17,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import * as Sentry from '@sentry/cloudflare'
 
-export const SERVER_VERSION = '1.11.0'
+export const SERVER_VERSION = '1.11.1'
 
 // ═══════════════════════════════════════════════════════════════════
 // Types
@@ -378,6 +378,99 @@ const TOOLS = [
         note: { type: 'string', description: 'Optional note' },
       },
       required: ['handoff_id'],
+    },
+  },
+  {
+    name: 'brain_orchestrator_agent',
+    description: 'Register or update an agent for orchestration.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Agent name (e.g., Claude, Gemini, Codex)' },
+        provider: { type: 'string', description: 'Provider or client' },
+        model: { type: 'string', description: 'Model identifier' },
+        status: { type: 'string', enum: ['idle', 'busy', 'offline'] },
+        metadata: { type: 'object', description: 'Additional metadata' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'brain_orchestrator_agents',
+    description: 'List registered orchestration agents.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'brain_orchestrator_room',
+    description: 'Create or update an orchestration room.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Room name' },
+        description: { type: 'string' },
+        visibility: { type: 'string', enum: ['private', 'team', 'public'] },
+        metadata: { type: 'object' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'brain_orchestrator_rooms',
+    description: 'List orchestration rooms.',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'brain_orchestrator_message',
+    description: 'Post a message into an orchestration room.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        room_id: { type: 'string', description: 'Room ID' },
+        content: { type: 'string', description: 'Message content' },
+        sender_type: { type: 'string', enum: ['user', 'agent', 'system'] },
+        sender_name: { type: 'string' },
+        agent_id: { type: 'string' },
+        metadata: { type: 'object' },
+      },
+      required: ['room_id', 'content'],
+    },
+  },
+  {
+    name: 'brain_orchestrator_messages',
+    description: 'List messages in an orchestration room.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        room_id: { type: 'string', description: 'Room ID' },
+        limit: { type: 'number', description: 'Max results (default: 50)' },
+        before: { type: 'string', description: 'Only messages before this ISO timestamp' },
+      },
+      required: ['room_id'],
+    },
+  },
+  {
+    name: 'brain_orchestrator_presence',
+    description: 'Update agent presence in a room.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        room_id: { type: 'string', description: 'Room ID' },
+        agent_id: { type: 'string', description: 'Agent ID' },
+        status: { type: 'string', enum: ['online', 'idle', 'busy', 'offline'] },
+        metadata: { type: 'object' },
+      },
+      required: ['room_id', 'agent_id'],
+    },
+  },
+  {
+    name: 'brain_orchestrator_presence_list',
+    description: 'List agent presence for a room.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        room_id: { type: 'string', description: 'Room ID' },
+      },
+      required: ['room_id'],
     },
   },
   {
@@ -1298,6 +1391,74 @@ async function handleToolCall(
       return { success: true, message: `Handoff ${handoffId} claimed`, handoff_id: handoffId }
     }
 
+    // ── Orchestrator ──
+    case 'brain_orchestrator_agent': {
+      const agent = await q.upsertOrchestratorAgent(db, userId, {
+        name: args.name as string,
+        provider: args.provider as string,
+        model: args.model as string,
+        status: args.status as string,
+        metadata: (args.metadata as Record<string, unknown>) || {},
+      })
+      return { success: true, agent: { ...agent, metadata: q.parseJson(agent.metadata) } }
+    }
+
+    case 'brain_orchestrator_agents': {
+      const agents = await q.listOrchestratorAgents(db, userId)
+      return { success: true, count: agents.length, agents: agents.map(a => ({ ...a, metadata: q.parseJson(a.metadata) })) }
+    }
+
+    case 'brain_orchestrator_room': {
+      const room = await q.createOrchestratorRoom(db, userId, {
+        name: args.name as string,
+        description: args.description as string,
+        visibility: args.visibility as string,
+        metadata: (args.metadata as Record<string, unknown>) || {},
+      })
+      return { success: true, room: { ...room, metadata: q.parseJson(room.metadata) } }
+    }
+
+    case 'brain_orchestrator_rooms': {
+      const rooms = await q.listOrchestratorRooms(db, userId)
+      return { success: true, count: rooms.length, rooms: rooms.map(r => ({ ...r, metadata: q.parseJson(r.metadata) })) }
+    }
+
+    case 'brain_orchestrator_message': {
+      const message = await q.createOrchestratorMessage(db, userId, args.room_id as string, {
+        content: args.content as string,
+        sender_type: args.sender_type as string,
+        sender_name: args.sender_name as string,
+        agent_id: args.agent_id as string,
+        metadata: (args.metadata as Record<string, unknown>) || {},
+      })
+      return { success: true, message: { ...message, metadata: q.parseJson(message.metadata) } }
+    }
+
+    case 'brain_orchestrator_messages': {
+      const messages = await q.listOrchestratorMessages(db, userId, args.room_id as string, {
+        limit: (args.limit as number) || 50,
+        before: args.before as string | undefined,
+      })
+      return { success: true, count: messages.length, messages: messages.map(m => ({ ...m, metadata: q.parseJson(m.metadata) })) }
+    }
+
+    case 'brain_orchestrator_presence': {
+      const presence = await q.upsertOrchestratorPresence(
+        db,
+        userId,
+        args.room_id as string,
+        args.agent_id as string,
+        (args.status as string) || 'online',
+        (args.metadata as Record<string, unknown>) || {},
+      )
+      return { success: true, presence: { ...presence, metadata: q.parseJson(presence.metadata) } }
+    }
+
+    case 'brain_orchestrator_presence_list': {
+      const presence = await q.listOrchestratorPresence(db, userId, args.room_id as string)
+      return { success: true, count: presence.length, presence: presence.map(p => ({ ...p, metadata: q.parseJson(p.metadata) })) }
+    }
+
     // ── Conversation ──
     case 'brain_conversation': {
       const projectId = await resolveProjectId(db, args.project as string)
@@ -1574,7 +1735,8 @@ const READ_ONLY_TOOLS = new Set([
   'brain_decision_accuracy', 'brain_cost_per_outcome', 'brain_prompt_quality',
   'brain_learning_curve', 'brain_score_session', 'brain_decision_templates',
   'brain_check_update', 'brain_stale_decisions', 'brain_reminders', 'brain_digest',
-  'brain_memory_health',
+  'brain_memory_health', 'brain_orchestrator_agents', 'brain_orchestrator_rooms',
+  'brain_orchestrator_messages', 'brain_orchestrator_presence_list',
 ])
 
 /** Format a tool call result for the SDK */

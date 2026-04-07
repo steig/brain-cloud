@@ -291,6 +291,56 @@ export interface Handoff {
   created_at: string;
 }
 
+export interface OrchestratorAgent {
+  id: string;
+  user_id: string;
+  name: string;
+  provider: string | null;
+  model: string | null;
+  status: "idle" | "busy" | "offline";
+  metadata?: Record<string, unknown>;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrchestratorRoom {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  visibility: "private" | "team" | "public";
+  metadata?: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OrchestratorMessage {
+  id: string;
+  user_id: string;
+  room_id: string;
+  sender_type: "user" | "agent" | "system";
+  sender_name: string | null;
+  agent_id: string | null;
+  agent_name?: string | null;
+  content: string;
+  metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface OrchestratorPresence {
+  id: string;
+  user_id: string;
+  room_id: string;
+  agent_id: string;
+  agent_name?: string | null;
+  status: "online" | "idle" | "busy" | "offline";
+  metadata?: Record<string, unknown>;
+  last_seen_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DecisionReview {
   id: string;
   decision_id: string;

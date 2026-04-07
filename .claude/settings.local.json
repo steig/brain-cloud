@@ -3,5 +3,16 @@
     "type": "command",
     "command": "npx -y @owloops/claude-powerline"
   },
-  "mcpServers": {}
+  "mcpServers": {
+    "brain": {
+      "command": "node",
+      "args": [
+        "/home/steig/code/brain/mcp-server/dist/index.js"
+      ],
+      "env": {
+        "BRAIN_API_URL": "http://brain-api",
+        "BRAIN_API_KEY": "brain_dev_key_change_me_in_production"
+      }
+    }
+  }
 }

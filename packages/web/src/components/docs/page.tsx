@@ -268,7 +268,7 @@ export function DocsPage() {
               <div className="mb-10 pb-6 border-b border-border/40">
                 <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground mb-3">
                   <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                  v1.11.0
+                  v1.11.1
                 </div>
                 <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
                   Brain Cloud Documentation

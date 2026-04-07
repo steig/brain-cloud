@@ -8,6 +8,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.11.1',
+    date: '2026-03-12',
+    title: 'Recent Activity Accuracy Fixes',
+    description: 'Dashboard timeline now reflects the true most recent activity, including same-day entries, and sessions show more meaningful context.',
+    changes: [
+      { type: 'fixed', text: 'Timeline date range now treats the end date as inclusive so today’s activity appears immediately' },
+      { type: 'fixed', text: 'Sessions in recent activity now surface summary, accomplishments, goals, or blockers instead of generic placeholders' },
+      { type: 'improved', text: 'Session activity ordering now uses session end time when available for accurate recency' },
+    ],
+  },
+  {
     version: '1.11.0',
     date: '2026-03-11',
     title: 'Sentry Error Monitoring',

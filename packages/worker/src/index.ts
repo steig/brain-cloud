@@ -12,7 +12,7 @@ import { authMiddleware, scopeMiddleware } from './auth/middleware'
 import { deleteUserAccount } from './db/queries'
 import { requestId } from './middleware/request-id'
 import { errorHandler } from './middleware/error-handler'
-import { apiRateLimiter, aiRateLimiter, authRateLimiter } from './middleware/rate-limiter'
+// import { apiRateLimiter, aiRateLimiter, authRateLimiter } from './middleware/rate-limiter'
 import { handleRetention } from './retention'
 import { docsRoutes } from './api/docs'
 import { analyticsTrackRoutes } from './api/analytics-track'
@@ -55,12 +55,12 @@ app.use('*', cors({
 // OAuth 2.1 well-known metadata (public, no auth)
 app.route('/.well-known', metadataRoutes)
 
-// OAuth 2.1 endpoints (rate-limited, handle their own auth)
-app.use('/oauth/*', authRateLimiter)
+// OAuth 2.1 endpoints (handle their own auth)
+// app.use('/oauth/*', authRateLimiter)
 app.route('/oauth', oauthRoutes)
 
 // Auth routes (no auth middleware — these handle their own auth)
-app.use('/auth/*', authRateLimiter)
+// app.use('/auth/*', authRateLimiter)
 app.route('/auth', authRoutes)
 
 // API docs (public, no auth) — served at /api-docs to avoid conflict with SPA /docs route
@@ -75,8 +75,8 @@ app.route('/install', installAssetRoutes)
 // API routes (require auth + scope enforcement)
 app.use('/api/*', authMiddleware)
 app.use('/api/*', scopeMiddleware)
-app.use('/api/*', apiRateLimiter)
-app.use('/api/ask/*', aiRateLimiter)
+// app.use('/api/*', apiRateLimiter)
+// app.use('/api/ask/*', aiRateLimiter)
 
 // Account deletion (GDPR right-to-erasure) — registered before apiRoutes
 app.delete('/api/account', async (c) => {

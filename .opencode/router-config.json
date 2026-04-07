@@ -1,0 +1,185 @@
+{
+  "version": "2.1.0",
+  "dailyBudgetUsd": 10,
+  "sessionWarnUsd": 2,
+  "toastCooldownMs": 30000,
+  "tiers": {
+    "0": {
+      "name": "local",
+      "agent": "local",
+      "description": "Zero-cost local model (Ollama)",
+      "costPerKToken": 0,
+      "patterns": [
+        "add\\s+(docstring|jsdoc|comment|type\\s*hint)",
+        "generate\\s+(boilerplate|scaffold|template)",
+        "write\\s+(docstring|types?|interface)",
+        "simple\\s+(rename|replace|transform)"
+      ],
+      "keywords": [
+        "boilerplate",
+        "docstring",
+        "jsdoc",
+        "type hints",
+        "scaffold",
+        "template",
+        "stub",
+        "placeholder",
+        "simple rename"
+      ],
+      "commands": []
+    },
+    "1": {
+      "name": "fast",
+      "agent": "scout",
+      "description": "Fast, cheap exploration (Haiku)",
+      "costPerKToken": 0.00125,
+      "patterns": [
+        "where\\s+(is|are|does|do)",
+        "find\\s+(the|all|every|any)",
+        "search\\s+(for|the|in)",
+        "how\\s+(does|do|is|are)\\s+\\w+\\s+(work|used|defined|configured)",
+        "what\\s+(is|are|does)\\s+(the|this)",
+        "show\\s+me",
+        "list\\s+(all|the|every)",
+        "which\\s+files?"
+      ],
+      "keywords": [
+        "find",
+        "search",
+        "where",
+        "explore",
+        "look up",
+        "locate",
+        "show me",
+        "list",
+        "what is",
+        "how does",
+        "which file"
+      ],
+      "commands": [
+        "help",
+        "docs",
+        "who",
+        "stats",
+        "health"
+      ]
+    },
+    "2": {
+      "name": "balanced",
+      "agent": "build",
+      "description": "Standard development (Sonnet)",
+      "costPerKToken": 0.015,
+      "patterns": [
+        "fix\\s+(the|this|a)\\s+bug",
+        "implement\\s+(the|this|a)(?!\\s+(entire|full|complete))",
+        "add\\s+(a\\s+)?(new\\s+)?(feature|function|component|endpoint|route)",
+        "refactor(?!.*entire)",
+        "debug",
+        "write\\s+(a\\s+)?test",
+        "update\\s+(the|this)",
+        "create\\s+(a\\s+)?(pr|pull\\s*request|commit)"
+      ],
+      "keywords": [
+        "implement",
+        "fix",
+        "debug",
+        "refactor",
+        "test",
+        "commit",
+        "create pr",
+        "update",
+        "add feature",
+        "build",
+        "code review"
+      ],
+      "commands": [
+        "commit",
+        "create_pr",
+        "code_review",
+        "pr_review",
+        "do_task",
+        "debug",
+        "tdd",
+        "update_branch",
+        "affected-tests"
+      ]
+    },
+    "3": {
+      "name": "codex",
+      "agent": "codex",
+      "description": "Heavy implementation (Codex)",
+      "costPerKToken": 0.02,
+      "patterns": [
+        "implement\\s+(the\\s+)?(entire|full|complete)",
+        "build\\s+(the\\s+)?(full|entire|complete)",
+        "create\\s+(the\\s+)?complete",
+        "port\\s+(this|the)",
+        "rewrite\\s+(this|the)",
+        "migrate"
+      ],
+      "keywords": [
+        "implement entire",
+        "build full",
+        "complete implementation",
+        "port",
+        "rewrite",
+        "migrate",
+        "large refactor"
+      ],
+      "commands": [
+        "yolo"
+      ]
+    },
+    "4": {
+      "name": "reason",
+      "agent": "architect",
+      "description": "Deep reasoning (Opus)",
+      "costPerKToken": 0.075,
+      "patterns": [
+        "architect",
+        "design\\s+(a|the|this)(\\s+\\w+)*\\s+(system|architecture|api|schema|database|service|auth|pipeline|platform)",
+        "plan\\s+(the|this|a)(\\s+\\w+)*\\s+(migration|refactor|feature|implementation)",
+        "security\\s+(audit|review|scan|analysis)",
+        "performance\\s+(analysis|audit|optimization)",
+        "how\\s+should\\s+(we|i)\\s+(design|architect|structure|approach)",
+        "trade.?offs?\\s+(between|of)",
+        "create\\s+(a\\s+)?(spec|specification|adr|rfc)"
+      ],
+      "keywords": [
+        "architecture",
+        "design",
+        "security audit",
+        "plan migration",
+        "performance analysis",
+        "tradeoffs",
+        "spec",
+        "adr",
+        "rfc",
+        "threat model",
+        "create milestone"
+      ],
+      "commands": [
+        "architect",
+        "adr",
+        "create_milestone",
+        "expert_panel",
+        "deploy-risk",
+        "security-scan"
+      ]
+    }
+  },
+  "agentTierMap": {
+    "architect": 4,
+    "plan": 4,
+    "build": 2,
+    "codex": 3,
+    "implement": 1,
+    "scout": 1,
+    "explore": 1,
+    "local": 0,
+    "general": 2,
+    "title": 1,
+    "summary": 1,
+    "compaction": 1
+  }
+}

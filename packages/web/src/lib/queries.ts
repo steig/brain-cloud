@@ -26,6 +26,10 @@ import {
   type CoachingData,
   type Project,
   type CrossProjectInsights,
+  type OrchestratorAgent,
+  type OrchestratorRoom,
+  type OrchestratorMessage,
+  type OrchestratorPresence,
 } from "./api";
 
 // Auth
@@ -291,6 +295,100 @@ export function useClaimHandoff() {
     mutationFn: ({ id, note }: { id: string; note?: string }) =>
       api.patch<{ success: boolean }>(`/api/handoffs/${id}/claim`, { note }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["handoffs"] }),
+  });
+}
+
+// Orchestrator
+export function useOrchestratorAgents() {
+  return useQuery({
+    queryKey: ["orchestrator-agents"],
+    queryFn: () => api.get<OrchestratorAgent[]>("/api/orchestrator/agents"),
+  });
+}
+
+export function useUpsertOrchestratorAgent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      provider?: string;
+      model?: string;
+      status?: string;
+      metadata?: Record<string, unknown>;
+    }) => api.post<OrchestratorAgent>("/api/orchestrator/agents", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["orchestrator-agents"] }),
+  });
+}
+
+export function useUpdateOrchestratorAgentStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api.patch<OrchestratorAgent>(`/api/orchestrator/agents/${id}`, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["orchestrator-agents"] }),
+  });
+}
+
+export function useOrchestratorRooms() {
+  return useQuery({
+    queryKey: ["orchestrator-rooms"],
+    queryFn: () => api.get<OrchestratorRoom[]>("/api/orchestrator/rooms"),
+  });
+}
+
+export function useCreateOrchestratorRoom() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      description?: string;
+      visibility?: string;
+      metadata?: Record<string, unknown>;
+    }) => api.post<OrchestratorRoom>("/api/orchestrator/rooms", data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["orchestrator-rooms"] }),
+  });
+}
+
+export function useOrchestratorMessages(roomId?: string, params?: { limit?: number; before?: string }) {
+  const searchParams = new URLSearchParams(
+    Object.entries(params || {})
+      .filter(([, v]) => v !== undefined && v !== null && v !== "")
+      .map(([k, v]) => [k, String(v)])
+  );
+  return useQuery({
+    queryKey: ["orchestrator-messages", roomId, params],
+    queryFn: () => api.get<OrchestratorMessage[]>(`/api/orchestrator/rooms/${roomId}/messages?${searchParams}`),
+    enabled: !!roomId,
+  });
+}
+
+export function useCreateOrchestratorMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { roomId: string; body: { content: string; sender_type?: string; sender_name?: string; agent_id?: string; metadata?: Record<string, unknown> } }) =>
+      api.post<OrchestratorMessage>(`/api/orchestrator/rooms/${data.roomId}/messages`, data.body),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["orchestrator-messages", variables.roomId] });
+    },
+  });
+}
+
+export function useOrchestratorPresence(roomId?: string) {
+  return useQuery({
+    queryKey: ["orchestrator-presence", roomId],
+    queryFn: () => api.get<OrchestratorPresence[]>(`/api/orchestrator/rooms/${roomId}/presence`),
+    enabled: !!roomId,
+  });
+}
+
+export function useUpsertOrchestratorPresence() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { room_id: string; agent_id: string; status?: string; metadata?: Record<string, unknown> }) =>
+      api.post<OrchestratorPresence>("/api/orchestrator/presence", data),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["orchestrator-presence", variables.room_id] });
+    },
   });
 }
 

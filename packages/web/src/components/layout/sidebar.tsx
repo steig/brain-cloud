@@ -20,6 +20,7 @@ import {
   GraduationCap,
   BookOpen,
   Bell,
+  MessagesSquare,
 } from "lucide-react";
 import { BrainCloudLogo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
@@ -68,6 +69,7 @@ export const navSections: NavSection[] = [
   {
     title: "Collaborate",
     items: [
+      { to: "/orchestrator", icon: MessagesSquare, label: "Orchestrator" },
       { to: "/teams", icon: Users, label: "Teams" },
       { to: "/projects", icon: FolderKanban, label: "Projects" },
       { to: "/github", icon: Github, label: "GitHub" },

@@ -107,7 +107,7 @@ config = {
             "mcp__context7__*",
             "mcp__fetch__*",
             "mcp__playwright__*",
-            "mcp__brain__*",
+            "mcp__brain-cloud__*",
             "Bash(git:*)",
             "Bash(gh:*)",
             "Bash(uvx:*)",

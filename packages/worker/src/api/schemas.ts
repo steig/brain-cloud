@@ -91,6 +91,42 @@ export const claimHandoffSchema = z.object({
   note: z.string().optional(),
 })
 
+// --- Orchestrator schemas ---
+
+export const createOrchestratorAgentSchema = z.object({
+  name: z.string().min(1, 'name is required'),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  status: z.enum(['idle', 'busy', 'offline']).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
+export const updateOrchestratorAgentSchema = z.object({
+  status: z.enum(['idle', 'busy', 'offline']).optional(),
+})
+
+export const createOrchestratorRoomSchema = z.object({
+  name: z.string().min(1, 'name is required'),
+  description: z.string().optional(),
+  visibility: z.enum(['private', 'team', 'public']).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
+export const createOrchestratorMessageSchema = z.object({
+  content: z.string().min(1, 'content is required'),
+  sender_type: z.enum(['user', 'agent', 'system']).optional(),
+  sender_name: z.string().optional(),
+  agent_id: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
+export const upsertOrchestratorPresenceSchema = z.object({
+  room_id: z.string().min(1, 'room_id is required'),
+  agent_id: z.string().min(1, 'agent_id is required'),
+  status: z.enum(['online', 'idle', 'busy', 'offline']).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+})
+
 // --- Analytics RPC schemas ---
 
 export const dateRangeSchema = z.object({
